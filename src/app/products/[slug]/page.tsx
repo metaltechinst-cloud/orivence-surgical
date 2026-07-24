@@ -12,14 +12,20 @@ interface ProductPageProps {
 export const revalidate = 0;
 
 export default async function ProductPage({ params }: ProductPageProps) {
-  const product = await db.product.findUnique({
-    where: { slug: params.slug },
-    include: {
-      category: {
-        select: { name: true, slug: true }
+  let product: any = null;
+
+  try {
+    product = await db.product.findUnique({
+      where: { slug: params.slug },
+      include: {
+        category: {
+          select: { name: true, slug: true }
+        }
       }
-    }
-  });
+    });
+  } catch (e) {
+    console.error("Product page DB error:", e);
+  }
 
   if (!product) {
     notFound();

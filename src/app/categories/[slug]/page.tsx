@@ -13,32 +13,38 @@ interface CategoryPageProps {
 export const revalidate = 0;
 
 export default async function CategoryPage({ params }: CategoryPageProps) {
-  const category = await db.category.findUnique({
-    where: { slug: params.slug },
-    include: {
-      products: {
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          description: true,
-          material: true,
-          finish: true,
-          dimensions: true,
-          sku: true,
-          imagesJson: true,
-          tipSize: true,
-          length: true,
-          width: true,
-          jawSize: true,
-        },
-        orderBy: [
-          { orderIndex: "asc" },
-          { name: "asc" }
-        ]
+  let category: any = null;
+
+  try {
+    category = await db.category.findUnique({
+      where: { slug: params.slug },
+      include: {
+        products: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            description: true,
+            material: true,
+            finish: true,
+            dimensions: true,
+            sku: true,
+            imagesJson: true,
+            tipSize: true,
+            length: true,
+            width: true,
+            jawSize: true,
+          },
+          orderBy: [
+            { orderIndex: "asc" },
+            { name: "asc" }
+          ]
+        }
       }
-    }
-  });
+    });
+  } catch (e) {
+    console.error("Category page DB error:", e);
+  }
 
   if (!category) {
     notFound();
@@ -50,7 +56,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
     name: category.name,
     description: category.description,
     slug: category.slug,
-    products: category.products.map(p => ({
+    products: (category.products || []).map((p: any) => ({
       ...p,
       category: {
         name: category.name,
