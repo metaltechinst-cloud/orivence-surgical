@@ -1,0 +1,147 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,300..1000;1,300..1000&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-nunito: 'Nunito', sans-serif;
+    
+    /* Exact ORIVENCE Palette Tokens */
+    --orivence-ice: #E0FBFC;
+    --orivence-pale-blue: #C2DFE3;
+    --orivence-blue-gray: #9DB4C0;
+    --orivence-slate: #5C6B73;
+    --orivence-deep: #253237;
+
+    /* Semantic Mappings */
+    --background-primary: #FFFFFF;
+    --background-secondary: #E0FBFC;
+    --surface: #FFFFFF;
+    --surface-muted: #C2DFE3;
+    --text-primary: #253237;
+    --text-secondary: #5C6B73;
+    --border: #C2DFE3;
+    --accent: #9DB4C0;
+    --button-primary: #253237;
+    --button-secondary: #9DB4C0;
+
+    --background: #FFFFFF;
+    --foreground: #253237;
+    --card: #FFFFFF;
+    --card-foreground: #253237;
+    --muted: #E0FBFC;
+    --muted-foreground: #5C6B73;
+  }
+
+  * {
+    font-family: 'Nunito', var(--font-nunito), sans-serif !important;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: 'Nunito', var(--font-nunito), sans-serif;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Nunito', var(--font-nunito), sans-serif;
+    color: #253237;
+    font-weight: 700;
+  }
+}
+
+/* Glassmorphism Styles */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid #C2DFE3;
+}
+
+.glass-header {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid #C2DFE3;
+  box-shadow: 0 2px 15px rgba(37, 50, 55, 0.04);
+}
+
+/* Surgical Clinical Card */
+.surgical-card {
+  background: #FFFFFF;
+  border: 1px solid #C2DFE3;
+  box-shadow: 0 4px 16px rgba(37, 50, 55, 0.05);
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.surgical-card:hover {
+  border-color: #9DB4C0;
+  box-shadow: 0 10px 30px rgba(157, 180, 192, 0.25);
+  transform: translateY(-2px);
+}
+
+/* Custom Hide Scrollbar */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Luxury Card Hover Overlay */
+.luxury-card {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Custom grid lines for surgical drafting background */
+.drafting-grid {
+  background-size: 40px 40px;
+  background-image: 
+    linear-gradient(to right, rgba(157, 180, 192, 0.12) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(157, 180, 192, 0.12) 1px, transparent 1px);
+}
+
+/* Moving Orivence Logo Background Watermark Animation */
+@keyframes watermarkFloatSpin {
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg) scale(1);
+  }
+  50% {
+    transform: translate(-50%, -50%) rotate(180deg) scale(1.06);
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(360deg) scale(1);
+  }
+}
+
+.animate-watermark-spin {
+  animation: watermarkFloatSpin 50s linear infinite;
+  transform-origin: center center;
+}
+
+/* Lenis Smooth Scroll Setup */
+html.lenis {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+.lenis.lenis-scrolling iframe {
+  pointer-events: none;
+}

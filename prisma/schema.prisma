@@ -1,0 +1,182 @@
+// prisma/schema.prisma
+
+datasource db {
+  provider = "sqlite" // Toggle to "postgresql" in production
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  image       String?   // Hero banner image URL
+  thumbnail   String?   // Category Thumbnail image URL
+  status      String    @default("PUBLISHED")
+  orderIndex  Int       @default(0)
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([slug])
+}
+
+model Product {
+  id                  String   @id @default(uuid())
+  name                String
+  slug                String   @unique
+  sku                 String   @default("")
+  modelNumber         String   @default("")
+  brand               String   @default("ORIVENCE")
+  material            String   @default("Surgical-grade Stainless Steel")
+  finish              String   @default("Satin Electro-polished")
+  dimensions          String   @default("")
+  length              String   @default("")
+  width               String   @default("")
+  tipSize             String   @default("")
+  jawSize             String   @default("")
+  weight              String   @default("")
+  description         String
+  applications        String   @default("[]") // JSON string of applications
+  features            String   @default("[]") // JSON string of features
+  packaging           String   @default("")
+  downloads           String   @default("[]") // JSON string of [{ name, url }]
+  imagesJson          String   @default("[]") // JSON string of multi-angle images
+  videoUrl            String   @default("")
+  relatedProductsJson String   @default("[]") // JSON string of related product IDs or slugs
+  seoTitle            String   @default("")
+  seoDescription      String   @default("")
+  seoKeywords         String   @default("")
+  featured            Boolean  @default(false)
+  status              String   @default("PUBLISHED")
+  orderIndex          Int      @default(0)
+  specJson            String   @default("{}")
+  categoryId          String
+  category            Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([slug])
+  @@index([sku])
+  @@index([modelNumber])
+  @@index([categoryId])
+  @@index([categoryId, featured, name])
+}
+
+model Inquiry {
+  id              String           @id @default(uuid())
+  referenceNo     String           @unique @default("")
+  name            String
+  companyName     String?
+  website         String?
+  country         String
+  email           String
+  phone           String?
+  whatsapp        String?
+  message         String
+  attachments     String           @default("[]") // JSON string of uploaded files paths
+  internalNotes   String           @default("")
+  assignedAgent   String?          @default("")
+  followUpDate    DateTime?
+  activityHistory String           @default("[]") // JSON string of history events
+  status          String           @default("NEW") // NEW, REVIEWING, CONTACTED, QUOTATION_SENT, NEGOTIATING, CONVERTED, ON_HOLD, CLOSED, LOST
+  items           InquiryItem[]
+  comments        InquiryComment[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  // Kept for backward compatibility with old seeds or entries:
+  productName     String           @default("")
+  sku             String           @default("")
+
+  @@index([referenceNo])
+  @@index([status])
+  @@index([createdAt])
+  @@index([email])
+}
+
+model InquiryItem {
+  id                   String  @id @default(uuid())
+  inquiryId            String
+  inquiry              Inquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  productId            String
+  quantity             Int     @default(1)
+  specSheetGenerated   Boolean @default(false)
+
+  @@index([inquiryId])
+  @@index([productId])
+}
+
+model InquiryComment {
+  id        String   @id @default(uuid())
+  inquiryId String
+  inquiry   Inquiry  @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  author    String
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([inquiryId])
+}
+
+model WebsiteSetting {
+  key   String @id
+  value String // JSON configuration payload
+}
+
+model MediaAsset {
+  id        String   @id @default(uuid())
+  filename  String
+  url       String
+  type      String   // image, video, pdf, document
+  size      Int
+  folder    String   @default("/") // Virtual folder mapping, e.g., "/tweezers"
+  altText   String   @default("")
+  title     String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([folder])
+  @@index([filename])
+}
+
+model AdminUser {
+  id                 String   @id @default(uuid())
+  username           String   @unique
+  passwordHash       String
+  role               String   @default("ADMIN") // OWNER, ADMIN, EDITOR, AGENT
+  mustChangePassword Boolean  @default(false)
+  twoFactorSecret    String?  // Encrypted TOTP secret
+  twoFactorEnabled   Boolean  @default(false)
+  createdAt          DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  username  String?
+  action    String
+  details   String   // JSON formatted details
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId])
+}
+
+model AnalyticsEvent {
+  id        String   @id @default(uuid())
+  eventName String   // page_view, product_click, search, pdf_download, rfq_submit
+  path      String
+  query     String?
+  referrer  String?
+  device    String?
+  country   String?
+  timestamp DateTime @default(now())
+
+  @@index([timestamp])
+  @@index([eventName])
+  @@index([path])
+}
