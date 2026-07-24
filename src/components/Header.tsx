@@ -22,6 +22,28 @@ export default function Header({ onOpenCompare, compareCount = 0 }: HeaderProps)
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
   const [currentLang, setCurrentLang] = useState("EN");
   const [isAdmin, setIsAdmin] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener("beforeinstallprompt", handleBeforeInstall);
+    return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const choiceResult = await deferredPrompt.userChoice;
+      if (choiceResult.outcome === "accepted") {
+        setDeferredPrompt(null);
+      }
+    } else {
+      alert("To install ORIVENCE App on your phone/computer:\n\n1. On Android/Chrome: Click browser menu (⋮) -> 'Add to Home screen' or 'Install App'\n2. On iPhone/Safari: Tap Share button (⎋) -> 'Add to Home Screen'");
+    }
+  };
 
   // Dynamic branding, WhatsApp & categories state
   const [branding, setBranding] = useState({ logoText: "ORIVENCE", logoSubtext: "INDUSTRIAL" });
@@ -292,6 +314,16 @@ export default function Header({ onOpenCompare, compareCount = 0 }: HeaderProps)
                 )}
               </AnimatePresence>
             </div>
+
+            {/* Install App Button */}
+            <button
+              onClick={handleInstallApp}
+              className="flex items-center gap-1 text-[11px] font-mono tracking-wider font-bold bg-[#253237] text-white px-3 py-1.5 rounded-full hover:bg-[#5C6B73] transition-all shadow-sm"
+              title="Install ORIVENCE App"
+            >
+              <img src="/icon-192.png" alt="Orivence App" className="w-3.5 h-3.5 rounded-full object-cover" />
+              <span>INSTALL APP</span>
+            </button>
 
             {/* Admin Login/Dashboard Link */}
             <Link
