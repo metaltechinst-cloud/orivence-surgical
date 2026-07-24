@@ -8,6 +8,7 @@ import jwt from "jsonwebtoken";
 const JWT_SECRET = process.env.JWT_SECRET || "orivance-surgical-super-secret-key-1827";
 
 const DEFAULT_ACCOUNTS: Record<string, { pass: string; role: string }> = {
+  ahmad123: { pass: "Ahmad1234", role: "OWNER" },
   owner: { pass: "ownerorivance", role: "OWNER" },
   admin: { pass: "adminorivance", role: "ADMIN" },
   editor: { pass: "editororivance", role: "EDITOR" },
