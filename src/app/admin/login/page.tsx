@@ -59,8 +59,7 @@ export default function AdminLoginPage() {
       localStorage.setItem("admin_token", data.token || "authenticated");
       localStorage.setItem("admin_user", JSON.stringify(data.user));
 
-      router.push("/admin/dashboard");
-      router.refresh();
+      window.location.href = "/admin/dashboard";
     } catch (err: any) {
       setErrorMsg(err.message || "An unexpected error occurred");
       setLoading(false);
