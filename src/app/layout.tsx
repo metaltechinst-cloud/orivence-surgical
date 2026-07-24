@@ -36,8 +36,15 @@ export async function generateMetadata(): Promise<Metadata> {
     title,
     description,
     keywords,
+    manifest: "/manifest.webmanifest",
     icons: {
       icon: faviconUrl,
+      apple: faviconUrl,
+    },
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "black-translucent",
+      title: "ORIVENCE",
     },
     openGraph: {
       title,
