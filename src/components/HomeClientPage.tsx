@@ -343,7 +343,6 @@ export default function HomeClientPage({ categories, featuredProducts }: HomeCli
                   A select group of our most requested catalog implements. Calibrated and prepared for commercial delivery.
                 </p>
               </div>
-              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                 {featuredProducts.map((prod) => (

@@ -37,7 +37,7 @@ export class SupabaseStorageProvider implements StorageProvider {
         "Content-Type": mimeType,
         "x-upsert": "true",
       },
-      body: fileBuffer,
+      body: new Uint8Array(fileBuffer),
     });
 
     if (!res.ok) {
@@ -89,7 +89,7 @@ export class SupabaseStorageProvider implements StorageProvider {
         Authorization: `Bearer ${this.supabaseKey}`,
         "Content-Type": mimeType,
       },
-      body: fileBuffer,
+      body: new Uint8Array(fileBuffer),
     });
 
     if (!res.ok) {
