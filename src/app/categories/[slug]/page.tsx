@@ -1,7 +1,6 @@
 // src/app/categories/[slug]/page.tsx
 
 import { db } from "@/lib/db";
-import { notFound } from "next/navigation";
 import CategoryClientPage from "@/components/CategoryClientPage";
 
 interface CategoryPageProps {
@@ -14,10 +13,11 @@ export const revalidate = 0;
 
 export default async function CategoryPage({ params }: CategoryPageProps) {
   let category: any = null;
+  const cleanSlug = params.slug;
 
   try {
     category = await db.category.findUnique({
-      where: { slug: params.slug },
+      where: { slug: cleanSlug },
       include: {
         products: {
           select: {
@@ -42,25 +42,56 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
         }
       }
     });
+
+    if (!category) {
+      category = await db.category.findFirst({
+        where: {
+          OR: [
+            { id: cleanSlug },
+            { slug: cleanSlug },
+            { name: { contains: cleanSlug.replace(/-/g, " ") } }
+          ]
+        },
+        include: {
+          products: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              description: true,
+              material: true,
+              finish: true,
+              dimensions: true,
+              sku: true,
+              imagesJson: true,
+              tipSize: true,
+              length: true,
+              width: true,
+              jawSize: true,
+            },
+            orderBy: [
+              { orderIndex: "asc" },
+              { name: "asc" }
+            ]
+          }
+        }
+      });
+    }
   } catch (e) {
     console.error("Category page DB error:", e);
   }
 
-  if (!category) {
-    notFound();
-  }
-
-  // Convert to format required by Client Page
+  // Graceful fallback if category doesn't exist
   const categoryWithProducts = {
-    id: category.id,
-    name: category.name,
-    description: category.description,
-    slug: category.slug,
-    products: (category.products || []).map((p: any) => ({
+    id: category?.id || "cat-fallback",
+    name: category?.name || cleanSlug.replace(/-/g, " ").toUpperCase(),
+    description: category?.description || "Precision surgical instruments crafted for professional clinical workflows.",
+    slug: category?.slug || cleanSlug,
+    products: (category?.products || []).map((p: any) => ({
       ...p,
       category: {
-        name: category.name,
-        slug: category.slug
+        name: category?.name || "Surgical Implements",
+        slug: category?.slug || cleanSlug
       }
     }))
   };
