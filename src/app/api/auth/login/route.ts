@@ -53,9 +53,9 @@ export async function POST(req: NextRequest) {
 
       // Best-effort database background sync (non-blocking)
       try {
-        const existing = await db.adminUser.findUnique({ where: { username: cleanUsername } });
+        const existing = await db.user.findUnique({ where: { username: cleanUsername } });
         if (!existing) {
-          await db.adminUser.create({
+          await db.user.create({
             data: {
               id: fallbackMatch.id,
               username: cleanUsername,
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
     // 2. Database Lookup for Custom Registered Admin Accounts
     let admin = null;
     try {
-      admin = await db.adminUser.findUnique({
+      admin = await db.user.findUnique({
         where: { username: cleanUsername },
       });
     } catch (e) {

@@ -53,10 +53,9 @@ export async function GET(req: NextRequest) {
 
       await db.analyticsEvent.create({
         data: {
-          eventName: "search",
+          eventType: "search",
           path: "/search",
-          query: cleanQuery,
-          device,
+          metaJson: JSON.stringify({ query: cleanQuery, device }),
           country,
         },
       });

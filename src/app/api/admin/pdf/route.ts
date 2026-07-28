@@ -96,10 +96,9 @@ export async function GET(req: NextRequest) {
       const country = req.headers.get("x-vercel-ip-country") || "Local";
       await db.analyticsEvent.create({
         data: {
-          eventName: "pdf_download",
+          eventType: "pdf_download",
           path: `/api/admin/pdf?type=${type}`,
-          query: `id=${productId || categoryId || inquiryId}`,
-          device: "Desktop",
+          metaJson: JSON.stringify({ query: `id=${productId || categoryId || inquiryId}`, device: "Desktop" }),
           country,
         },
       });
@@ -154,8 +153,8 @@ export async function GET(req: NextRequest) {
       const technicalSpecs: Record<string, string> = {
         "Brand": product.brand || "ORIVENCE",
         "Category": product.category?.name || "Uncategorized",
-        "Material Composition": product.material,
-        "Surface Finish": product.finish,
+        "Material Composition": product.material || "Surgical-grade Stainless Steel",
+        "Surface Finish": product.finish || "Satin Electro-polished",
       };
 
       if (product.length) technicalSpecs["Total Length"] = product.length;
@@ -167,7 +166,7 @@ export async function GET(req: NextRequest) {
 
       // Parse specJson dynamically
       try {
-        const customSpecs = JSON.parse(product.specJson);
+        const customSpecs = JSON.parse(product.specJson || "{}");
         Object.entries(customSpecs).forEach(([k, v]) => {
           technicalSpecs[k] = String(v);
         });
@@ -257,7 +256,7 @@ export async function GET(req: NextRequest) {
 
         const specs: Record<string, string> = {
           "Model Number": prod.modelNumber || "N/A",
-          "Surface Finish": prod.finish,
+          "Surface Finish": prod.finish || "Satin Electro-polished",
           "Dimensions": prod.dimensions || "N/A",
         };
         if (prod.tipSize) specs["Tip Alignment"] = prod.tipSize;
