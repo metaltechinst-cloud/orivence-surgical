@@ -118,7 +118,7 @@ async function verifyJWT(token: string, secret: string): Promise<any | null> {
 // Rate limiting map
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
-const MAX_REQUESTS_PER_WINDOW = 200; // 200 requests/min limit for API
+const MAX_REQUESTS_PER_WINDOW = 100; // 100 requests/min limit for API
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -142,27 +142,28 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // 2. CSRF Origin Verification for Mutating Actions (Resilient for Vercel/Local)
+  // 2. CSRF Origin Verification for Mutating Actions
   if (
     pathname.startsWith("/api/") &&
     ["POST", "PUT", "DELETE", "PATCH"].includes(req.method)
   ) {
     const origin = req.headers.get("origin");
     const host = req.headers.get("host");
+    const referer = req.headers.get("referer");
 
     if (origin && host) {
       const originHost = origin.replace(/^https?:\/\//, "");
-      const cleanHost = host.replace(/^https?:\/\//, "");
-      const isAllowed =
-        originHost === cleanHost ||
-        originHost.endsWith(".vercel.app") ||
-        cleanHost.endsWith(".vercel.app") ||
-        originHost.includes("localhost") ||
-        cleanHost.includes("localhost");
-
-      if (!isAllowed) {
+      if (originHost !== host && !host.startsWith(originHost)) {
         return new NextResponse(
           JSON.stringify({ error: "CSRF verification failed: Origin mismatch." }),
+          { status: 403, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    } else if (!origin && referer && host) {
+      const refererHost = new URL(referer).host;
+      if (refererHost !== host) {
+        return new NextResponse(
+          JSON.stringify({ error: "CSRF verification failed: Referer mismatch." }),
           { status: 403, headers: { "Content-Type": "application/json" } }
         );
       }
@@ -184,9 +185,11 @@ export async function middleware(req: NextRequest) {
       userPayload = await verifyJWT(accessToken, JWT_SECRET);
     }
 
+    // Try automatic refresh if access token expired but refresh token exists
     if (!userPayload && refreshToken) {
       const refreshPayload = await verifyJWT(refreshToken, REFRESH_SECRET);
       if (refreshPayload) {
+        // Sign new access token
         const newAccessToken = await signJWT({
           userId: refreshPayload.userId,
           username: refreshPayload.username,
@@ -199,10 +202,34 @@ export async function middleware(req: NextRequest) {
           secure: process.env.NODE_ENV === "production",
           sameSite: "strict",
           path: "/",
-          maxAge: 15 * 60,
+          maxAge: 15 * 60, // 15 mins
         });
 
         return res;
+      }
+    }
+
+    // Gating unauthenticated users
+    if (!userPayload) {
+      if (isAdminPage) {
+        const loginUrl = new URL("/admin/login", req.url);
+        return NextResponse.redirect(loginUrl);
+      } else {
+        return new NextResponse(
+          JSON.stringify({ error: "Unauthorized access: Authentication required." }),
+          { status: 401, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    }
+  }
+
+  // Redirect authenticated user away from login page to dashboard
+  if (isLoginPage) {
+    const accessToken = req.cookies.get("admin_token")?.value;
+    if (accessToken) {
+      const payload = await verifyJWT(accessToken, JWT_SECRET);
+      if (payload) {
+        return NextResponse.redirect(new URL("/admin/dashboard", req.url));
       }
     }
   }
