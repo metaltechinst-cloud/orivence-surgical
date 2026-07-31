@@ -1,8 +1,8 @@
 // prisma/schema.prisma
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -30,7 +30,7 @@ model Product {
   slug                String    @unique
   sku                 String    @unique
   modelNumber         String?
-  brand               String    @default("ORIVENCE")
+  brand               String?   @default("ORIVENCE")
   description         String
   material            String?   @default("Surgical-grade Stainless Steel")
   finish              String?   @default("Satin Electro-polished")
