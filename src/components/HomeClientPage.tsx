@@ -193,7 +193,7 @@ export default function HomeClientPage({ categories, featuredProducts }: HomeCli
                 </div>
 
                 <h1 className="text-4xl md:text-6xl font-black tracking-tight text-[#253237] font-sans leading-[1.1]">
-                  {settings.homepage_hero?.headline || "MICRON-LEVEL SURGICAL ALIGNMENT"}
+                  {settings.homepage_hero?.headline || "THIS IS THE UPDATED ORIVENCE WEBSITE"}
                 </h1>
 
                 <p className="text-[#5C6B73] text-sm md:text-base leading-relaxed max-w-xl font-sans font-medium">
