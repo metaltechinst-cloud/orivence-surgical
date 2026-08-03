@@ -134,10 +134,23 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Nothing to update." }, { status: 400 });
     }
 
-    console.log(`[DB WRITE START] Update User credentials ID: ${targetUserId}`);
+    const existingUser = await db.user.findFirst({
+      where: {
+        OR: [
+          { id: targetUserId },
+          { username: decoded.username }
+        ]
+      }
+    });
+
+    if (!existingUser) {
+      return NextResponse.json({ success: false, error: "User record not found." }, { status: 404 });
+    }
+
+    console.log(`[DB WRITE START] Update User credentials ID: ${existingUser.id}`);
 
     const updatedUser = await db.user.update({
-      where: { id: targetUserId },
+      where: { id: existingUser.id },
       data: dataToUpdate,
     });
 

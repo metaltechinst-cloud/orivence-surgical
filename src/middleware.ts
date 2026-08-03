@@ -176,7 +176,9 @@ export async function middleware(req: NextRequest) {
   const isAdminApi = pathname.startsWith("/api/admin");
 
   if ((isAdminPage && !isLoginPage) || isAdminApi) {
-    const accessToken = req.cookies.get("admin_token")?.value;
+    const authHeader = req.headers.get("authorization");
+    const bearerToken = authHeader && authHeader.startsWith("Bearer ") ? authHeader.substring(7) : null;
+    const accessToken = req.cookies.get("admin_token")?.value || bearerToken;
     const refreshToken = req.cookies.get("refresh_token")?.value;
 
     let userPayload: TokenPayload | null = null;

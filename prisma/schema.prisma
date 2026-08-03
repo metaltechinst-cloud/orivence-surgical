@@ -1,12 +1,11 @@
-// prisma/schema.prisma
-
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
 generator client {
   provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Category {
@@ -16,56 +15,53 @@ model Category {
   description String?
   image       String?
   thumbnail   String?
-  status      String    @default("PUBLISHED") // "PUBLISHED", "DRAFT"
+  status      String    @default("PUBLISHED")
   orderIndex  Int       @default(0)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-
   products    Product[]
 }
 
 model Product {
-  id                  String    @id @default(uuid())
+  id                  String        @id @default(uuid())
   name                String
-  slug                String    @unique
-  sku                 String    @unique
+  slug                String        @unique
+  sku                 String        @unique
   modelNumber         String?
-  brand               String?   @default("ORIVENCE")
+  brand               String?       @default("ORIVENCE")
   description         String
-  material            String?   @default("Surgical-grade Stainless Steel")
-  finish              String?   @default("Satin Electro-polished")
+  material            String?       @default("Surgical-grade Stainless Steel")
+  finish              String?       @default("Satin Electro-polished")
   dimensions          String?
   length              String?
   width               String?
   tipSize             String?
   jawSize             String?
   weight              String?
-  applications        String?   // JSON string array
-  features            String?   // JSON string array
+  applications        String?
+  features            String?
   packaging           String?
-  downloads           String?   // JSON string array of download links
-  imagesJson          String    // JSON string array of image URLs
+  downloads           String?
+  imagesJson          String
   videoUrl            String?
-  relatedProductsJson String?   // JSON string array of product IDs
+  relatedProductsJson String?
   seoTitle            String?
   seoDescription      String?
   seoKeywords         String?
-  featured            Boolean   @default(false)
-  status              String    @default("PUBLISHED") // "PUBLISHED", "DRAFT"
-  orderIndex          Int       @default(0)
-  specJson            String?   // Flexible Key-Value JSON specs
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-
+  featured            Boolean       @default(false)
+  status              String        @default("PUBLISHED")
+  orderIndex          Int           @default(0)
+  specJson            String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
   categoryId          String
-  category            Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-
   inquiryItems        InquiryItem[]
+  category            Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 }
 
 model Inquiry {
-  id              String         @id @default(uuid())
-  referenceNo     String         @unique
+  id              String           @id @default(uuid())
+  referenceNo     String           @unique
   name            String
   companyName     String?
   website         String?
@@ -74,38 +70,37 @@ model Inquiry {
   phone           String?
   whatsapp        String?
   message         String?
-  attachments     String?        // JSON string array of file URLs
-  status          String         @default("NEW") // "NEW", "IN_REVIEW", "QUOTED", "CLOSED"
+  attachments     String?
+  status          String           @default("NEW")
   internalNotes   String?
   assignedAgent   String?
   followUpDate    DateTime?
-  activityHistory String?        // JSON log of changes
-  productName     String?        // Main/First product for display
-  sku             String?        // Main product SKU
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-
-  items           InquiryItem[]
+  activityHistory String?
+  productName     String?
+  sku             String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
   comments        InquiryComment[]
+  items           InquiryItem[]
 }
 
 model InquiryItem {
-  id          String   @id @default(uuid())
-  inquiryId   String
-  inquiry     Inquiry  @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
-  productId   String
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  quantity    Int      @default(1)
-  createdAt   DateTime @default(now())
+  id        String   @id @default(uuid())
+  inquiryId String
+  productId String
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+  inquiry   Inquiry  @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model InquiryComment {
-  id          String   @id @default(uuid())
-  inquiryId   String
-  inquiry     Inquiry  @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
-  author      String
-  text        String
-  createdAt   DateTime @default(now())
+  id        String   @id @default(uuid())
+  inquiryId String
+  author    String
+  text      String
+  createdAt DateTime @default(now())
+  inquiry   Inquiry  @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
 }
 
 model MediaAsset {
@@ -122,19 +117,19 @@ model MediaAsset {
 }
 
 model User {
-  id                 String    @id @default(uuid())
-  username           String    @unique
-  passwordHash       String
-  role               String    @default("CONTENT_MANAGER") // OWNER, ADMIN, CONTENT_MANAGER, VIEWER
-  email              String?
-  status             String    @default("ACTIVE") // ACTIVE, SUSPENDED
-  twoFactorEnabled   Boolean   @default(false)
-  twoFactorSecret    String?
-  failedLoginCount   Int       @default(0)
-  lockedUntil        DateTime?
-  lastLoginAt        DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  id               String    @id @default(uuid())
+  username         String    @unique
+  passwordHash     String
+  role             String    @default("CONTENT_MANAGER")
+  email            String?
+  status           String    @default("ACTIVE")
+  twoFactorEnabled Boolean   @default(false)
+  twoFactorSecret  String?
+  failedLoginCount Int       @default(0)
+  lockedUntil      DateTime?
+  lastLoginAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }
 
 model AuditLog {
@@ -151,7 +146,7 @@ model BackupRecord {
   id        String   @id @default(uuid())
   filename  String
   size      Int
-  type      String   @default("AUTOMATIC") // AUTOMATIC, MANUAL
+  type      String   @default("AUTOMATIC")
   url       String
   createdAt DateTime @default(now())
 }
@@ -159,13 +154,13 @@ model BackupRecord {
 model WebsiteSetting {
   id        String   @id @default(uuid())
   key       String   @unique
-  value     String   // Serialized JSON or plain text
+  value     String
   updatedAt DateTime @updatedAt
 }
 
 model AnalyticsEvent {
   id        String   @id @default(uuid())
-  eventType String   // PAGE_VIEW, RFQ_SUBMIT, DOWNLOAD, CLICK
+  eventType String
   path      String?
   productId String?
   metaJson  String?
