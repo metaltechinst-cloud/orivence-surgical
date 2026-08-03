@@ -43,15 +43,21 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.json(products);
-  } catch (error) {
-    console.error("Fetch products API error:", error);
-    return NextResponse.json([], { status: 200 }); // Graceful fallback
+  } catch (error: any) {
+    console.error("[DB READ FAIL] Fetch products API error:", error?.message || error);
+    return NextResponse.json({ success: false, error: "Database query failed", details: error?.message || String(error) }, { status: 500 });
   }
 }
 
 // POST /api/products - Create a new product
 export async function POST(req: NextRequest) {
   try {
+    const token = getAuthToken(req);
+    const decoded = token ? verifyAccessToken(token) : null;
+    if (!decoded) {
+      return NextResponse.json({ success: false, error: "Unauthorized: Invalid or missing token" }, { status: 401 });
+    }
+
     const body = await req.json();
     const {
       name,
@@ -85,60 +91,64 @@ export async function POST(req: NextRequest) {
     } = body;
 
     if (!name || !description || !categoryId || !sku) {
-      return NextResponse.json({ error: "Missing required fields (Name, SKU, Description, Category)" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Missing required fields (Name, SKU, Description, Category)" }, { status: 400 });
     }
 
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
-    let newProduct;
-    try {
-      newProduct = await db.product.create({
-        data: {
-          name,
-          slug,
-          sku,
-          modelNumber: modelNumber || "",
-          brand: brand || "ORIVENCE",
-          description,
-          material: material || "Surgical-grade Stainless Steel",
-          finish: finish || "Satin Electro-polished",
-          dimensions: dimensions || "",
-          length: length || "",
-          width: width || "",
-          tipSize: tipSize || "",
-          jawSize: jawSize || "",
-          weight: weight || "",
-          applications: typeof applications === "object" ? JSON.stringify(applications) : String(applications || "[]"),
-          features: typeof features === "object" ? JSON.stringify(features) : String(features || "[]"),
-          packaging: packaging || "",
-          downloads: typeof downloads === "object" ? JSON.stringify(downloads) : String(downloads || "[]"),
-          imagesJson: typeof imagesJson === "object" ? JSON.stringify(imagesJson) : String(imagesJson || "[]"),
-          videoUrl: videoUrl || "",
-          relatedProductsJson: typeof relatedProductsJson === "object" ? JSON.stringify(relatedProductsJson) : String(relatedProductsJson || "[]"),
-          seoTitle: seoTitle || "",
-          seoDescription: seoDescription || "",
-          seoKeywords: seoKeywords || "",
-          featured: !!featured,
-          status: status || "PUBLISHED",
-          orderIndex: parseInt(orderIndex) || 0,
-          specJson: typeof specJson === "object" ? JSON.stringify(specJson) : String(specJson || "{}"),
-          categoryId,
-        },
-      });
-    } catch (dbErr) {
-      newProduct = { id: "prod-" + Date.now(), name, slug, sku, categoryId };
-    }
+    console.log(`[DB WRITE START] Create Product: "${name}" (SKU: ${sku})`);
 
-    return NextResponse.json({ success: true, data: newProduct });
+    const newProduct = await db.product.create({
+      data: {
+        name,
+        slug,
+        sku,
+        modelNumber: modelNumber || "",
+        brand: brand || "ORIVENCE",
+        description,
+        material: material || "Surgical-grade Stainless Steel",
+        finish: finish || "Satin Electro-polished",
+        dimensions: dimensions || "",
+        length: length || "",
+        width: width || "",
+        tipSize: tipSize || "",
+        jawSize: jawSize || "",
+        weight: weight || "",
+        applications: typeof applications === "object" ? JSON.stringify(applications) : String(applications || "[]"),
+        features: typeof features === "object" ? JSON.stringify(features) : String(features || "[]"),
+        packaging: packaging || "",
+        downloads: typeof downloads === "object" ? JSON.stringify(downloads) : String(downloads || "[]"),
+        imagesJson: typeof imagesJson === "object" ? JSON.stringify(imagesJson) : String(imagesJson || "[]"),
+        videoUrl: videoUrl || "",
+        relatedProductsJson: typeof relatedProductsJson === "object" ? JSON.stringify(relatedProductsJson) : String(relatedProductsJson || "[]"),
+        seoTitle: seoTitle || "",
+        seoDescription: seoDescription || "",
+        seoKeywords: seoKeywords || "",
+        featured: !!featured,
+        status: status || "PUBLISHED",
+        orderIndex: parseInt(orderIndex) || 0,
+        specJson: typeof specJson === "object" ? JSON.stringify(specJson) : String(specJson || "{}"),
+        categoryId,
+      },
+    });
+
+    console.log(`[DB WRITE SUCCESS] Product created ID: ${newProduct.id}`);
+    return NextResponse.json({ success: true, data: newProduct }, { status: 201 });
   } catch (error: any) {
-    console.error("Create product API error:", error);
-    return NextResponse.json({ success: true, message: "Product created successfully" });
+    console.error(`[DB WRITE FAIL] Create Product failed: ${error?.message || error}`);
+    return NextResponse.json({ success: false, error: "Database write failed", details: error?.message || String(error) }, { status: 500 });
   }
 }
 
 // PUT /api/products - Update an existing product
 export async function PUT(req: NextRequest) {
   try {
+    const token = getAuthToken(req);
+    const decoded = token ? verifyAccessToken(token) : null;
+    if (!decoded) {
+      return NextResponse.json({ success: false, error: "Unauthorized: Invalid or missing token" }, { status: 401 });
+    }
+
     const body = await req.json();
     const {
       id,
@@ -173,7 +183,7 @@ export async function PUT(req: NextRequest) {
     } = body;
 
     if (!id || !name || !description || !categoryId || !sku) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Missing required fields for update" }, { status: 400 });
     }
 
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -210,70 +220,51 @@ export async function PUT(req: NextRequest) {
       categoryId,
     };
 
-    let updatedProduct;
-    try {
-      updatedProduct = await db.product.update({
-        where: { id },
-        data: updatePayload,
-      });
-    } catch (updateErr) {
-      try {
-        const existing = await db.product.findFirst({
-          where: { OR: [{ id }, { sku }, { slug }] }
-        });
-        if (existing) {
-          updatedProduct = await db.product.update({
-            where: { id: existing.id },
-            data: updatePayload,
-          });
-        } else {
-          updatedProduct = await db.product.create({
-            data: { id, ...updatePayload },
-          });
-        }
-      } catch (e) {
-        updatedProduct = { id, ...updatePayload };
-      }
-    }
+    console.log(`[DB WRITE START] Update Product ID: ${id}`);
 
+    const updatedProduct = await db.product.update({
+      where: { id },
+      data: updatePayload,
+    });
+
+    console.log(`[DB WRITE SUCCESS] Product updated ID: ${id}`);
     return NextResponse.json({ success: true, data: updatedProduct });
   } catch (error: any) {
-    console.error("Update product API error:", error);
-    return NextResponse.json({ success: true, message: "Product updated successfully" });
+    console.error(`[DB WRITE FAIL] Update Product failed: ${error?.message || error}`);
+    return NextResponse.json({ success: false, error: "Database write failed", details: error?.message || String(error) }, { status: 500 });
   }
 }
 
 // DELETE /api/products - Delete a product
 export async function DELETE(req: NextRequest) {
   try {
+    const token = getAuthToken(req);
+    const decoded = token ? verifyAccessToken(token) : null;
+    if (!decoded) {
+      return NextResponse.json({ success: false, error: "Unauthorized: Invalid or missing token" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 
     if (!id) {
-      return NextResponse.json({ error: "Product ID is required" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Product ID is required" }, { status: 400 });
     }
 
-    try {
-      await db.inquiryItem.deleteMany({
-        where: { productId: id }
-      });
-    } catch (inquiryItemErr) {}
+    console.log(`[DB WRITE START] Delete Product ID: ${id}`);
 
-    try {
-      await db.product.delete({
-        where: { id },
-      });
-    } catch (delErr) {
-      try {
-        await db.product.deleteMany({
-          where: { OR: [{ id }, { sku: id }, { slug: id }] }
-        });
-      } catch (e) {}
-    }
+    await db.inquiryItem.deleteMany({
+      where: { productId: id }
+    });
 
+    await db.product.delete({
+      where: { id },
+    });
+
+    console.log(`[DB WRITE SUCCESS] Product deleted ID: ${id}`);
     return NextResponse.json({ success: true, message: "Product deleted successfully" });
   } catch (error: any) {
-    console.error("Delete product API error:", error);
-    return NextResponse.json({ success: true, message: "Product deleted successfully" });
+    console.error(`[DB WRITE FAIL] Delete Product failed: ${error?.message || error}`);
+    return NextResponse.json({ success: false, error: "Database write failed", details: error?.message || String(error) }, { status: 500 });
   }
 }

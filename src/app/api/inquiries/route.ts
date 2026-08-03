@@ -10,7 +10,10 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
     const token = getAuthToken(req);
-    const decoded = token ? verifyAccessToken(token) : { userId: "user-ahmad123", username: "ahmad123", role: "OWNER" };
+    const decoded = token ? verifyAccessToken(token) : null;
+    if (!decoded) {
+      return NextResponse.json({ success: false, error: "Unauthorized access" }, { status: 401 });
+    }
 
     const { searchParams } = new URL(req.url);
     const inquiryIdForComments = searchParams.get("inquiryId");
@@ -66,9 +69,9 @@ export async function GET(req: NextRequest) {
         totalPages: Math.ceil(totalCount / limit),
       }
     });
-  } catch (error) {
-    console.error("Fetch inquiries API error:", error);
-    return NextResponse.json({ success: true, data: [], pagination: { total: 0, page: 1, limit: 50, totalPages: 1 } }, { status: 200 });
+  } catch (error: any) {
+    console.error("[DB READ FAIL] Fetch inquiries API error:", error?.message || error);
+    return NextResponse.json({ success: false, error: "Database query failed", details: error?.message || String(error) }, { status: 500 });
   }
 }
 
@@ -79,12 +82,17 @@ export async function POST(req: NextRequest) {
 
     if (body.action === "comment") {
       const token = getAuthToken(req);
-      const decoded = token ? verifyAccessToken(token) : { userId: "user-ahmad123", username: "ahmad123", role: "OWNER" };
+      const decoded = token ? verifyAccessToken(token) : null;
+      if (!decoded) {
+        return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+      }
 
       const { inquiryId, text } = body;
       if (!inquiryId || !text) {
-        return NextResponse.json({ error: "Inquiry ID and comment text are required" }, { status: 400 });
+        return NextResponse.json({ success: false, error: "Inquiry ID and comment text are required" }, { status: 400 });
       }
+
+      console.log(`[DB WRITE START] Add comment to Inquiry ID: ${inquiryId}`);
 
       const comment = await db.inquiryComment.create({
         data: {
@@ -94,14 +102,15 @@ export async function POST(req: NextRequest) {
         }
       });
 
-      return NextResponse.json({ success: true, data: comment });
+      console.log(`[DB WRITE SUCCESS] InquiryComment created ID: ${comment.id}`);
+      return NextResponse.json({ success: true, data: comment }, { status: 201 });
     }
 
     const { name, companyName, website, country, email, phone, whatsapp, message, items, attachments } = body;
 
     if (!name || !country || !email || !items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
-        { error: "Required fields missing: Name, Country, Email, and Products list." },
+        { success: false, error: "Required fields missing: Name, Country, Email, and Products list." },
         { status: 400 }
       );
     }
@@ -118,6 +127,8 @@ export async function POST(req: NextRequest) {
 
     const count = await db.inquiry.count();
     const referenceNo = `ORV-${new Date().getFullYear()}-${String(count + 1).padStart(6, "0")}`;
+
+    console.log(`[DB WRITE START] Create Inquiry ref: ${referenceNo} for ${email}`);
 
     const inquiry = await db.inquiry.create({
       data: {
@@ -144,10 +155,11 @@ export async function POST(req: NextRequest) {
       include: { items: true }
     });
 
-    return NextResponse.json({ success: true, data: inquiry, referenceNo });
+    console.log(`[DB WRITE SUCCESS] Inquiry created ID: ${inquiry.id}`);
+    return NextResponse.json({ success: true, data: inquiry, referenceNo }, { status: 201 });
   } catch (error: any) {
-    console.error("Submit inquiry API error:", error);
-    return NextResponse.json({ error: "Failed to submit inquiry: " + (error.message || "") }, { status: 400 });
+    console.error(`[DB WRITE FAIL] Submit inquiry API error: ${error?.message || error}`);
+    return NextResponse.json({ success: false, error: "Failed to submit inquiry: " + (error?.message || String(error)) }, { status: 500 });
   }
 }
 
@@ -155,12 +167,15 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const token = getAuthToken(req);
-    const decoded = token ? verifyAccessToken(token) : { userId: "user-ahmad123", username: "ahmad123", role: "OWNER" };
+    const decoded = token ? verifyAccessToken(token) : null;
+    if (!decoded) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
 
     const { id, status, internalNotes, notes, assignedAgent } = await req.json();
 
     if (!id) {
-      return NextResponse.json({ error: "Inquiry ID is required" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Inquiry ID is required" }, { status: 400 });
     }
 
     const updateData: any = {};
@@ -169,15 +184,18 @@ export async function PATCH(req: NextRequest) {
     if (finalNotes !== undefined) updateData.internalNotes = finalNotes;
     if (assignedAgent !== undefined) updateData.assignedAgent = assignedAgent;
 
+    console.log(`[DB WRITE START] Update Inquiry ID: ${id}`);
+
     const updated = await db.inquiry.update({
       where: { id },
       data: updateData,
     });
 
+    console.log(`[DB WRITE SUCCESS] Inquiry updated ID: ${id}`);
     return NextResponse.json({ success: true, data: updated });
   } catch (error: any) {
-    console.error("Update inquiry API error:", error);
-    return NextResponse.json({ error: "Failed to update inquiry: " + (error.message || "") }, { status: 400 });
+    console.error(`[DB WRITE FAIL] Update inquiry API error: ${error?.message || error}`);
+    return NextResponse.json({ success: false, error: "Failed to update inquiry: " + (error?.message || String(error)) }, { status: 500 });
   }
 }
 
@@ -188,24 +206,28 @@ export async function PUT(req: NextRequest) {
 // DELETE /api/inquiries - Delete inquiry
 export async function DELETE(req: NextRequest) {
   try {
+    const token = getAuthToken(req);
+    const decoded = token ? verifyAccessToken(token) : null;
+    if (!decoded) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 
     if (!id) {
-      return NextResponse.json({ error: "Inquiry ID is required" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Inquiry ID is required" }, { status: 400 });
     }
 
-    try {
-      await db.inquiryComment.deleteMany({ where: { inquiryId: id } });
-      await db.inquiryItem.deleteMany({ where: { inquiryId: id } });
-      await db.inquiry.delete({ where: { id } });
-    } catch (delErr) {
-      await db.inquiry.deleteMany({ where: { id } });
-    }
+    console.log(`[DB WRITE START] Delete Inquiry ID: ${id}`);
+    await db.inquiryComment.deleteMany({ where: { inquiryId: id } });
+    await db.inquiryItem.deleteMany({ where: { inquiryId: id } });
+    await db.inquiry.delete({ where: { id } });
+    console.log(`[DB WRITE SUCCESS] Inquiry deleted ID: ${id}`);
 
     return NextResponse.json({ success: true, message: "Inquiry deleted successfully." });
   } catch (error: any) {
-    console.error("Delete inquiry API error:", error);
-    return NextResponse.json({ error: "Failed to delete inquiry: " + (error.message || "") }, { status: 400 });
+    console.error(`[DB WRITE FAIL] Delete inquiry API error: ${error?.message || error}`);
+    return NextResponse.json({ success: false, error: "Failed to delete inquiry: " + (error?.message || String(error)) }, { status: 500 });
   }
 }

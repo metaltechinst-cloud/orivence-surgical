@@ -30,9 +30,9 @@ export async function GET(req: NextRequest) {
       },
     });
     return NextResponse.json(categories);
-  } catch (error) {
-    console.error("Fetch categories API error:", error);
-    return NextResponse.json([], { status: 200 }); // Graceful fallback
+  } catch (error: any) {
+    console.error("[DB READ FAIL] Fetch categories API error:", error?.message || error);
+    return NextResponse.json({ success: false, error: "Database query failed", details: error?.message || String(error) }, { status: 500 });
   }
 }
 
@@ -40,32 +40,23 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const token = getAuthToken(req);
-    const decoded = token ? verifyAccessToken(token) : { userId: "user-ahmad123", username: "ahmad123", role: "OWNER" };
+    const decoded = token ? verifyAccessToken(token) : null;
+    if (!decoded) {
+      return NextResponse.json({ success: false, error: "Unauthorized access: Authentication required." }, { status: 401 });
+    }
 
     const { name, description, image, thumbnail, status, orderIndex } = await req.json();
 
     if (!name) {
-      return NextResponse.json({ error: "Category name is required" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Category name is required" }, { status: 400 });
     }
 
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
-    let newCategory;
-    try {
-      newCategory = await db.category.create({
-        data: {
-          name,
-          slug,
-          description: description || "",
-          image: image || "/images/products/hero_tweezers.png",
-          thumbnail: thumbnail || "",
-          status: status || "PUBLISHED",
-          orderIndex: parseInt(orderIndex) || 0,
-        },
-      });
-    } catch (dbErr: any) {
-      newCategory = {
-        id: "cat-" + Date.now(),
+    console.log(`[DB WRITE START] Create Category: "${name}"`);
+
+    const newCategory = await db.category.create({
+      data: {
         name,
         slug,
         description: description || "",
@@ -73,135 +64,100 @@ export async function POST(req: NextRequest) {
         thumbnail: thumbnail || "",
         status: status || "PUBLISHED",
         orderIndex: parseInt(orderIndex) || 0,
-      };
-    }
+      },
+    });
 
-    return NextResponse.json({ success: true, data: newCategory });
+    console.log(`[DB WRITE SUCCESS] Category created ID: ${newCategory.id}`);
+    return NextResponse.json({ success: true, data: newCategory }, { status: 201 });
   } catch (error: any) {
-    console.error("Create category API error:", error);
-    return NextResponse.json({ success: true, message: "Category created successfully" });
+    console.error(`[DB WRITE FAIL] Create category API error: ${error?.message || error}`);
+    return NextResponse.json({ success: false, error: "Database write failed: " + (error?.message || String(error)) }, { status: 500 });
   }
 }
 
 // PUT /api/categories - Update category
 export async function PUT(req: NextRequest) {
   try {
+    const token = getAuthToken(req);
+    const decoded = token ? verifyAccessToken(token) : null;
+    if (!decoded) {
+      return NextResponse.json({ success: false, error: "Unauthorized access: Authentication required." }, { status: 401 });
+    }
+
     const { id, name, description, image, thumbnail, status, orderIndex } = await req.json();
 
     if (!id || !name) {
-      return NextResponse.json({ error: "Category ID and name are required" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Category ID and name are required" }, { status: 400 });
     }
 
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
-    let updatedCategory;
-    try {
-      updatedCategory = await db.category.update({
-        where: { id },
-        data: {
-          name,
-          slug,
-          description: description || "",
-          image: image || "/images/products/hero_tweezers.png",
-          thumbnail: thumbnail || "",
-          status: status || "PUBLISHED",
-          orderIndex: parseInt(orderIndex) || 0,
-        },
-      });
-    } catch (updateErr) {
-      try {
-        const existing = await db.category.findFirst({
-          where: { OR: [{ id }, { slug }, { name }] }
-        });
+    console.log(`[DB WRITE START] Update Category ID: ${id}`);
 
-        if (existing) {
-          updatedCategory = await db.category.update({
-            where: { id: existing.id },
-            data: {
-              name,
-              slug,
-              description: description || "",
-              image: image || "/images/products/hero_tweezers.png",
-              thumbnail: thumbnail || "",
-              status: status || "PUBLISHED",
-              orderIndex: parseInt(orderIndex) || 0,
-            },
-          });
-        } else {
-          updatedCategory = await db.category.create({
-            data: {
-              id,
-              name,
-              slug,
-              description: description || "",
-              image: image || "/images/products/hero_tweezers.png",
-              thumbnail: thumbnail || "",
-              status: status || "PUBLISHED",
-              orderIndex: parseInt(orderIndex) || 0,
-            },
-          });
-        }
-      } catch (fallbackErr) {
-        updatedCategory = { id, name, slug, description, image, thumbnail, status, orderIndex };
-      }
-    }
+    const updatedCategory = await db.category.update({
+      where: { id },
+      data: {
+        name,
+        slug,
+        description: description || "",
+        image: image || "/images/products/hero_tweezers.png",
+        thumbnail: thumbnail || "",
+        status: status || "PUBLISHED",
+        orderIndex: parseInt(orderIndex) || 0,
+      },
+    });
 
+    console.log(`[DB WRITE SUCCESS] Category updated ID: ${id}`);
     return NextResponse.json({ success: true, data: updatedCategory });
   } catch (error: any) {
-    console.error("Update category API error:", error);
-    return NextResponse.json({ success: true, message: "Category updated successfully" });
+    console.error(`[DB WRITE FAIL] Update category API error: ${error?.message || error}`);
+    return NextResponse.json({ success: false, error: "Database write failed: " + (error?.message || String(error)) }, { status: 500 });
   }
 }
 
 // DELETE /api/categories - Delete category
 export async function DELETE(req: NextRequest) {
   try {
+    const token = getAuthToken(req);
+    const decoded = token ? verifyAccessToken(token) : null;
+    if (!decoded) {
+      return NextResponse.json({ success: false, error: "Unauthorized access: Authentication required." }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
     const reassignCategoryId = searchParams.get("reassignCategoryId");
 
     if (!id) {
-      return NextResponse.json({ error: "Category ID is required" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Category ID is required" }, { status: 400 });
     }
+
+    console.log(`[DB WRITE START] Delete Category ID: ${id}`);
 
     // 1. Reassign or clean up products to avoid Foreign Key constraint failure
     if (reassignCategoryId) {
-      try {
-        await db.product.updateMany({
-          where: { categoryId: id },
-          data: { categoryId: reassignCategoryId }
-        });
-      } catch (reassignErr) {
-        console.warn("Product reassign error:", reassignErr);
-      }
-    } else {
-      try {
-        await db.product.deleteMany({
-          where: { categoryId: id }
-        });
-      } catch (cleanProdErr) {
-        console.warn("Child product cleanup warning:", cleanProdErr);
-      }
-    }
-
-    // 2. Delete Category with fail-safe fallback
-    try {
-      await db.category.delete({
-        where: { id },
+      console.log(`[DB WRITE START] Reassign products from Category ${id} to ${reassignCategoryId}`);
+      await db.product.updateMany({
+        where: { categoryId: id },
+        data: { categoryId: reassignCategoryId }
       });
-    } catch (delErr) {
-      try {
-        await db.category.deleteMany({
-          where: { OR: [{ id }, { slug: id }, { name: id }] }
-        });
-      } catch (e) {
-        console.warn("Delete category fallback catch:", e);
-      }
+      console.log(`[DB WRITE SUCCESS] Products reassigned.`);
+    } else {
+      console.log(`[DB WRITE START] Cleanup products for Category ${id}`);
+      await db.product.deleteMany({
+        where: { categoryId: id }
+      });
     }
 
+    // 2. Delete Category
+    await db.category.delete({
+      where: { id },
+    });
+
+    console.log(`[DB WRITE SUCCESS] Category deleted ID: ${id}`);
     return NextResponse.json({ success: true, message: "Category deleted successfully" });
   } catch (error: any) {
-    console.error("Delete category API error:", error);
-    return NextResponse.json({ success: true, message: "Category deleted successfully" });
+    console.error(`[DB WRITE FAIL] Delete category API error: ${error?.message || error}`);
+    return NextResponse.json({ success: false, error: "Database write failed: " + (error?.message || String(error)) }, { status: 500 });
   }
 }

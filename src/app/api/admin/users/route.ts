@@ -10,7 +10,10 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
     const token = getAuthToken(req);
-    const decoded = token ? verifyAccessToken(token) : { userId: "user-ahmad123", username: "ahmad123", role: "OWNER" };
+    const decoded = token ? verifyAccessToken(token) : null;
+    if (!decoded) {
+      return NextResponse.json({ success: false, error: "Unauthorized access" }, { status: 401 });
+    }
 
     const users = await db.user.findMany({
       select: {
@@ -24,9 +27,9 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.json({ success: true, users });
-  } catch (error) {
-    console.error("Fetch admin users error:", error);
-    return NextResponse.json({ success: true, users: [] }, { status: 200 });
+  } catch (error: any) {
+    console.error("[DB READ FAIL] Fetch admin users error:", error?.message || error);
+    return NextResponse.json({ success: false, error: "Database query failed", details: error?.message || String(error) }, { status: 500 });
   }
 }
 
@@ -34,26 +37,33 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const token = getAuthToken(req);
-    const decoded = token ? verifyAccessToken(token) : { userId: "user-ahmad123", username: "ahmad123", role: "OWNER" };
+    const decoded = token ? verifyAccessToken(token) : null;
+    if (!decoded || (decoded.role !== "OWNER" && decoded.role !== "ADMIN")) {
+      return NextResponse.json({ success: false, error: "Unauthorized: Insufficient permissions" }, { status: 401 });
+    }
 
     const { username, password, role } = await req.json();
 
     if (!username || !password || !role) {
-      return NextResponse.json({ error: "Username, password, and role are required." }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Username, password, and role are required." }, { status: 400 });
     }
 
+    const cleanUser = username.toLowerCase().trim();
+
+    console.log(`[DB WRITE START] Create User: "${cleanUser}" (${role})`);
+
     const existing = await db.user.findUnique({
-      where: { username: username.toLowerCase().trim() },
+      where: { username: cleanUser },
     });
 
     if (existing) {
-      return NextResponse.json({ error: "Username already exists." }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Username already exists." }, { status: 400 });
     }
 
     const passwordHash = hashPassword(password);
     const newUser = await db.user.create({
       data: {
-        username: username.toLowerCase().trim(),
+        username: cleanUser,
         passwordHash,
         role: role.toUpperCase(),
       },
@@ -65,33 +75,38 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({ success: true, user: newUser });
+    console.log(`[DB WRITE SUCCESS] User created ID: ${newUser.id}`);
+    return NextResponse.json({ success: true, user: newUser }, { status: 201 });
   } catch (error: any) {
-    console.error("Create admin user error:", error);
-    return NextResponse.json({ error: "Failed to create user: " + (error.message || "") }, { status: 400 });
+    console.error(`[DB WRITE FAIL] Create admin user error: ${error?.message || error}`);
+    return NextResponse.json({ success: false, error: "Failed to create user: " + (error?.message || String(error)) }, { status: 500 });
   }
 }
 
 // DELETE /api/admin/users - Delete an admin user
 export async function DELETE(req: NextRequest) {
   try {
+    const token = getAuthToken(req);
+    const decoded = token ? verifyAccessToken(token) : null;
+    if (!decoded || (decoded.role !== "OWNER" && decoded.role !== "ADMIN")) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 
     if (!id) {
-      return NextResponse.json({ error: "User ID is required" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "User ID is required" }, { status: 400 });
     }
 
-    try {
-      await db.user.delete({ where: { id } });
-    } catch (delErr) {
-      await db.user.deleteMany({ where: { id } });
-    }
+    console.log(`[DB WRITE START] Delete User ID: ${id}`);
+    await db.user.delete({ where: { id } });
+    console.log(`[DB WRITE SUCCESS] User deleted ID: ${id}`);
 
     return NextResponse.json({ success: true, message: "User account deleted successfully." });
   } catch (error: any) {
-    console.error("Delete admin user error:", error);
-    return NextResponse.json({ success: true, message: "User deleted successfully." });
+    console.error(`[DB WRITE FAIL] Delete admin user error: ${error?.message || error}`);
+    return NextResponse.json({ success: false, error: "Delete user failed: " + (error?.message || String(error)) }, { status: 500 });
   }
 }
 
@@ -99,8 +114,11 @@ export async function DELETE(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const token = getAuthToken(req);
-    const decoded = token ? verifyAccessToken(token) : { userId: "user-ahmad123", username: "ahmad123", role: "OWNER" };
-    const targetUserId = decoded?.userId || "user-ahmad123";
+    const decoded = token ? verifyAccessToken(token) : null;
+    if (!decoded) {
+      return NextResponse.json({ success: false, error: "Unauthorized access" }, { status: 401 });
+    }
+    const targetUserId = decoded.userId;
 
     const { username, password } = await req.json();
 
@@ -113,18 +131,17 @@ export async function PUT(req: NextRequest) {
     }
 
     if (Object.keys(dataToUpdate).length === 0) {
-      return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Nothing to update." }, { status: 400 });
     }
 
-    let updatedUser;
-    try {
-      updatedUser = await db.user.update({
-        where: { id: targetUserId },
-        data: dataToUpdate,
-      });
-    } catch (err) {
-      updatedUser = { id: targetUserId, username: username || "ahmad123", role: "OWNER" };
-    }
+    console.log(`[DB WRITE START] Update User credentials ID: ${targetUserId}`);
+
+    const updatedUser = await db.user.update({
+      where: { id: targetUserId },
+      data: dataToUpdate,
+    });
+
+    console.log(`[DB WRITE SUCCESS] User credentials updated ID: ${targetUserId}`);
 
     return NextResponse.json({
       success: true,
@@ -136,7 +153,7 @@ export async function PUT(req: NextRequest) {
       }
     });
   } catch (error: any) {
-    console.error("Update admin user error:", error);
-    return NextResponse.json({ success: true, message: "Credentials updated successfully." });
+    console.error(`[DB WRITE FAIL] Update admin user error: ${error?.message || error}`);
+    return NextResponse.json({ success: false, error: "Update credentials failed: " + (error?.message || String(error)) }, { status: 500 });
   }
 }

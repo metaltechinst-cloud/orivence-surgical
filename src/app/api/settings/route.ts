@@ -23,21 +23,33 @@ export async function GET(req: NextRequest) {
     }, {} as Record<string, any>);
 
     return NextResponse.json(settingsMap);
-  } catch (error) {
-    console.error("Fetch settings error:", error);
-    return NextResponse.json({}, { status: 200 }); // Graceful fallback
+  } catch (error: any) {
+    console.error("[DB READ FAIL] Fetch settings error:", error?.message || error);
+    return NextResponse.json({ success: false, error: "Database query failed", details: error?.message || String(error) }, { status: 500 });
   }
 }
 
-// PUT /api/settings - Bulk update website settings
-export async function PUT(req: NextRequest) {
+// Shared settings upsert handler
+async function handleUpsertSettings(req: NextRequest) {
   try {
     const token = getAuthToken(req);
-    const decoded = token ? verifyAccessToken(token) : { userId: "user-ahmad123", username: "ahmad123", role: "OWNER" };
+    const decoded = token ? verifyAccessToken(token) : null;
+    if (!decoded) {
+      return NextResponse.json({ success: false, error: "Unauthorized access: Authentication required." }, { status: 401 });
+    }
 
-    const settingsData = await req.json(); // Expecting { [key]: valueObject }
+    const payload = await req.json();
+    
+    // Support both single pair { key, value } and bulk map { [key]: value }
+    let settingsData: Record<string, any> = {};
+    if (payload.key !== undefined && payload.value !== undefined) {
+      settingsData[payload.key] = payload.value;
+    } else {
+      settingsData = payload;
+    }
 
-    // Save each setting key-value pair in database
+    console.log(`[DB WRITE START] Upsert website settings keys: ${Object.keys(settingsData).join(", ")}`);
+
     for (const [key, value] of Object.entries(settingsData)) {
       const stringValue = typeof value === "object" ? JSON.stringify(value) : String(value);
       
@@ -48,7 +60,9 @@ export async function PUT(req: NextRequest) {
       });
     }
 
-    // Audit Log entry (non-blocking)
+    console.log(`[DB WRITE SUCCESS] Website settings updated.`);
+
+    // Audit Log entry
     try {
       if (decoded) {
         await db.auditLog.create({
@@ -62,12 +76,21 @@ export async function PUT(req: NextRequest) {
         });
       }
     } catch (auditErr) {
-      console.warn("Audit log error during settings update (ignored):", auditErr);
+      console.warn("[DB WRITE WARNING] Audit log entry failed:", auditErr);
     }
 
     return NextResponse.json({ success: true, message: "Settings updated successfully" });
   } catch (error: any) {
-    console.error("Save settings error:", error);
-    return NextResponse.json({ error: "Failed to update settings: " + (error.message || "") }, { status: 400 });
+    console.error(`[DB WRITE FAIL] Save settings error: ${error?.message || error}`);
+    return NextResponse.json({ success: false, error: "Failed to update settings: " + (error?.message || String(error)) }, { status: 500 });
   }
+}
+
+// Support both PUT and POST methods
+export async function PUT(req: NextRequest) {
+  return handleUpsertSettings(req);
+}
+
+export async function POST(req: NextRequest) {
+  return handleUpsertSettings(req);
 }
