@@ -1,12 +1,14 @@
 // src/components/admin/SettingsTab.tsx
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { 
-  Settings, Mail, Lock, CheckCircle2, 
-  AlertCircle, Globe, FileText, Upload, RefreshCw, Trash2, Link as LinkIcon
+  Building2, PhoneCall, Share2, Palette, Info, LayoutTemplate, 
+  Search, Mail, ShieldAlert, CheckCircle2, AlertCircle, 
+  Upload, Trash2, Globe, Send, RefreshCw, Lock, Link as LinkIcon, Plus, Trash, BarChart3, Eye, Layers
 } from "lucide-react";
 import MediaPickerModal from "./MediaPickerModal";
+import HomepageBuilderTab from "./HomepageBuilderTab";
 
 interface SettingsTabProps {
   initialSettings: any;
@@ -14,9 +16,20 @@ interface SettingsTabProps {
 }
 
 export default function SettingsTab({ initialSettings, onSave }: SettingsTabProps) {
-  const [settings, setSettings] = useState(initialSettings);
+  const [settings, setSettings] = useState(initialSettings || {});
+  const [activeTab, setActiveTab] = useState<
+    "business" | "social" | "branding" | "company" | "contact_page" | "footer" | "header" | "seo" | "analytics" | "smtp" | "security" | "homepage"
+  >("business");
+  
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+
+  // Search filter for settings
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // SMTP Test Email state
+  const [testEmailRecipient, setTestEmailRecipient] = useState("");
+  const [smtpTesting, setSmtpTesting] = useState(false);
 
   // Admin credentials state
   const [newUsername, setNewUsername] = useState("");
@@ -30,19 +43,101 @@ export default function SettingsTab({ initialSettings, onSave }: SettingsTabProp
   const [activePickerTarget, setActivePickerTarget] = useState<string>("");
 
   useEffect(() => {
-    setSettings(initialSettings);
+    setSettings(initialSettings || {});
   }, [initialSettings]);
 
-  const handleSave = async (key: string, data: any) => {
+  const updateSettingValue = (pathStr: string, val: any) => {
+    const keys = pathStr.split(".");
+    const updated = JSON.parse(JSON.stringify(settings || {}));
+    let temp = updated;
+    for (let i = 0; i < keys.length - 1; i++) {
+      if (!temp[keys[i]]) temp[keys[i]] = {};
+      temp = temp[keys[i]];
+    }
+    temp[keys[keys.length - 1]] = val;
+    setSettings(updated);
+  };
+
+  const handleSaveGroup = async (key: string, data: any, customGroup?: string) => {
     setLoading(true);
     setFeedback(null);
     try {
-      await onSave(key, data);
-      setFeedback({ type: "success", msg: `${key.toUpperCase().replace(/_/g, " ")} settings saved successfully.` });
+      await onSave(key, data || {});
+      setFeedback({ type: "success", msg: `${key.toUpperCase().replace(/_/g, " ")} saved successfully!` });
     } catch (err: any) {
       setFeedback({ type: "error", msg: err.message || "Failed to save settings." });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const triggerDirectUpload = async (file: File, targetPath: string) => {
+    setLoading(true);
+    setFeedback(null);
+    try {
+      const token = localStorage.getItem("admin_token");
+      const formData = new FormData();
+      formData.append("folder", "/branding");
+      formData.append("file", file);
+
+      const res = await fetch("/api/media", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
+      });
+
+      if (!res.ok) throw new Error("Upload failed");
+      const result = await res.json();
+      const url = result.data[0].url;
+      updateSettingValue(targetPath, url);
+      setFeedback({ type: "success", msg: "Asset uploaded and linked successfully!" });
+    } catch (err: any) {
+      setFeedback({ type: "error", msg: err.message || "Failed to upload file." });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openPicker = (target: string, type: "image" | "pdf" | "video") => {
+    setActivePickerTarget(target);
+    setPickerAllowedType(type);
+    setPickerOpen(true);
+  };
+
+  const handlePickerSelect = (url: string) => {
+    updateSettingValue(activePickerTarget, url);
+  };
+
+  const handleTestSmtp = async () => {
+    if (!testEmailRecipient.trim()) {
+      setFeedback({ type: "error", msg: "Please enter a test recipient email address." });
+      return;
+    }
+    setSmtpTesting(true);
+    setFeedback(null);
+    try {
+      const token = localStorage.getItem("admin_token");
+      const res = await fetch("/api/admin/test-email", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({
+          ...settings.smtp_config,
+          testRecipient: testEmailRecipient.trim()
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setFeedback({ type: "success", msg: data.message });
+      } else {
+        setFeedback({ type: "error", msg: data.error || "SMTP verification failed." });
+      }
+    } catch (err: any) {
+      setFeedback({ type: "error", msg: "Server error testing SMTP configuration." });
+    } finally {
+      setSmtpTesting(false);
     }
   };
 
@@ -87,880 +182,1013 @@ export default function SettingsTab({ initialSettings, onSave }: SettingsTabProp
     }
   };
 
-  // Immediate upload handler
-  const triggerDirectUpload = async (file: File, targetPath: string) => {
-    setLoading(true);
-    setFeedback(null);
-    try {
-      const token = localStorage.getItem("admin_token");
-      const formData = new FormData();
-      formData.append("folder", "/");
-      formData.append("file", file);
-
-      const res = await fetch("/api/media", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData
-      });
-
-      if (!res.ok) {
-        throw new Error("Upload failed");
-      }
-
-      const result = await res.json();
-      const url = result.data[0].url;
-      updateSettingValue(targetPath, url);
-      setFeedback({ type: "success", msg: "File uploaded and linked successfully." });
-    } catch (err: any) {
-      setFeedback({ type: "error", msg: err.message || "Failed to upload file." });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const updateSettingValue = (pathStr: string, val: any) => {
-    const keys = pathStr.split(".");
-    const updated = { ...settings };
-    let temp = updated;
-    for (let i = 0; i < keys.length - 1; i++) {
-      if (!temp[keys[i]]) temp[keys[i]] = {};
-      temp[keys[i]] = { ...temp[keys[i]] };
-      temp = temp[keys[i]];
-    }
-    temp[keys[keys.length - 1]] = val;
-    setSettings(updated);
-  };
-
-  const deleteSettingValue = (pathStr: string) => {
-    updateSettingValue(pathStr, "");
-  };
-
-  const openPicker = (target: string, type: "image" | "pdf" | "video") => {
-    setActivePickerTarget(target);
-    setPickerAllowedType(type);
-    setPickerOpen(true);
-  };
-
-  const handlePickerSelect = (url: string) => {
-    updateSettingValue(activePickerTarget, url);
-  };
-
-  // Drag and drop helper
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-  };
-
-  const handleDropUpload = (e: React.DragEvent, targetPath: string) => {
-    e.preventDefault();
-    const files = e.dataTransfer.files;
-    if (files && files.length > 0) {
-      triggerDirectUpload(files[0], targetPath);
-    }
-  };
+  const navTabs = [
+    { id: "business", label: "Identity & Business", icon: Building2 },
+    { id: "social", label: "Social Media", icon: Share2 },
+    { id: "branding", label: "Branding & Logos", icon: Palette },
+    { id: "company", label: "Company & About", icon: Info },
+    { id: "contact_page", label: "Contact Page", icon: PhoneCall },
+    { id: "homepage", label: "Homepage Builder", icon: Layers },
+    { id: "footer", label: "Footer Builder", icon: LayoutTemplate },
+    { id: "header", label: "Header Builder", icon: Globe },
+    { id: "seo", label: "SEO & Meta", icon: Search },
+    { id: "analytics", label: "Analytics & Scripts", icon: BarChart3 },
+    { id: "smtp", label: "Email / SMTP", icon: Mail },
+    { id: "security", label: "Security & Admins", icon: ShieldAlert },
+  ];
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 text-xs font-mono">
-      {/* LEFT SIDE: Settings forms */}
-      <div className="lg:col-span-8 flex flex-col gap-6">
-        
-        {feedback && (
-          <div className={`p-4 rounded-xl border flex items-start gap-2.5 text-xs ${
-            feedback.type === "success" 
-              ? "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/60 text-emerald-600 dark:text-emerald-400"
-              : "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400"
-          }`}>
-            {feedback.type === "success" ? <CheckCircle2 className="w-4.5 h-4.5 shrink-0" /> : <AlertCircle className="w-4.5 h-4.5 shrink-0" />}
-            <span>{feedback.msg}</span>
-          </div>
-        )}
-
-        {/* Brand & Hero Background Media Settings */}
-        <div className="border border-zinc-200 dark:border-zinc-900 rounded-xl p-5 bg-white dark:bg-zinc-950 shadow-luxury-sm">
-          <h3 className="text-xs font-mono font-bold tracking-widest text-zinc-950 dark:text-white uppercase mb-4 pb-2 border-b border-zinc-100 dark:border-zinc-900 flex items-center gap-1.5">
-            <Globe className="w-4 h-4 text-zinc-400" />
-            Brand Identity Settings
-          </h3>
-          <div className="flex flex-col gap-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1">
-                <span>Logo Text *</span>
-                <input
-                  type="text"
-                  value={settings.branding?.logoText || ""}
-                  onChange={(e) => updateSettingValue("branding.logoText", e.target.value)}
-                  className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs text-black dark:text-white"
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <span>Logo Subtext</span>
-                <input
-                  type="text"
-                  value={settings.branding?.logoSubtext || ""}
-                  onChange={(e) => updateSettingValue("branding.logoSubtext", e.target.value)}
-                  className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs text-black dark:text-white"
-                />
-              </div>
-            </div>
-
-            {/* Visual Logo Upload Card */}
-            <div className="border border-dashed border-zinc-200 dark:border-zinc-800 p-4 rounded-xl flex flex-col gap-3">
-              <span className="font-bold text-[10px] uppercase text-zinc-500">Corporate Brand Logo</span>
-              
-              <div className="flex flex-col sm:flex-row items-center gap-4">
-                <div className="w-24 h-12 border border-zinc-200 dark:border-zinc-800 rounded-lg flex items-center justify-center bg-zinc-50 dark:bg-zinc-900 shrink-0 overflow-hidden">
-                  {settings.branding?.logoText ? (
-                    <span className="text-xs font-extrabold font-display tracking-widest uppercase">{settings.branding.logoText}</span>
-                  ) : (
-                    <span className="text-[9px] text-zinc-400">NO LOGO</span>
-                  )}
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => openPicker("branding.logoText", "image")}
-                    className="px-3 py-1.5 border border-zinc-300 dark:border-zinc-800 rounded font-semibold text-[10px] bg-white dark:bg-zinc-900 hover:border-black dark:hover:border-white"
-                  >
-                    CHOOSE LOGO
-                  </button>
-                  <label className="px-3 py-1.5 border border-zinc-300 dark:border-zinc-800 rounded font-semibold text-[10px] bg-white dark:bg-zinc-900 hover:border-black dark:hover:border-white cursor-pointer">
-                    UPLOAD NEW
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => e.target.files?.[0] && triggerDirectUpload(e.target.files[0], "branding.logoText")}
-                      className="hidden"
-                    />
-                  </label>
-                  {settings.branding?.logoText && (
-                    <button
-                      type="button"
-                      onClick={() => deleteSettingValue("branding.logoText")}
-                      className="px-3 py-1.5 border border-red-200 dark:border-red-950 text-red-500 rounded font-semibold text-[10px] hover:bg-red-50"
-                    >
-                      DELETE
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Visual Favicon Upload Card */}
-            <div className="border border-dashed border-zinc-200 dark:border-zinc-800 p-4 rounded-xl flex flex-col gap-3">
-              <span className="font-bold text-[10px] uppercase text-zinc-500">Website Favicon (.ico / .png)</span>
-              
-              <div className="flex flex-col sm:flex-row items-center gap-4">
-                <div className="w-12 h-12 border border-zinc-200 dark:border-zinc-800 rounded-lg flex items-center justify-center bg-zinc-50 dark:bg-zinc-900 shrink-0 overflow-hidden">
-                  {settings.branding?.faviconUrl ? (
-                    <img src={settings.branding.faviconUrl} alt="Favicon" className="w-6 h-6 object-contain" />
-                  ) : (
-                    <span className="text-[9px] text-zinc-400">FAVICON</span>
-                  )}
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => openPicker("branding.faviconUrl", "image")}
-                    className="px-3 py-1.5 border border-zinc-300 dark:border-zinc-800 rounded font-semibold text-[10px] bg-white dark:bg-zinc-900 hover:border-black dark:hover:border-white"
-                  >
-                    CHOOSE FAVICON
-                  </button>
-                  <label className="px-3 py-1.5 border border-zinc-300 dark:border-zinc-800 rounded font-semibold text-[10px] bg-white dark:bg-zinc-900 hover:border-black dark:hover:border-white cursor-pointer">
-                    UPLOAD NEW
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => e.target.files?.[0] && triggerDirectUpload(e.target.files[0], "branding.faviconUrl")}
-                      className="hidden"
-                    />
-                  </label>
-                  {settings.branding?.faviconUrl && (
-                    <button
-                      type="button"
-                      onClick={() => deleteSettingValue("branding.faviconUrl")}
-                      className="px-3 py-1.5 border border-red-200 dark:border-red-950 text-red-500 rounded font-semibold text-[10px] hover:bg-red-50"
-                    >
-                      DELETE
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <button
-              onClick={() => handleSave("branding", settings.branding)}
-              disabled={loading}
-              className="bg-black hover:bg-zinc-850 dark:bg-white dark:text-black dark:hover:bg-zinc-100 text-white font-bold py-2.5 rounded mt-1 shadow-luxury-sm"
-            >
-              SAVE BRAND IDENTITY
-            </button>
-          </div>
+    <div className="flex flex-col gap-6 text-xs font-mono text-zinc-800 dark:text-zinc-200">
+      
+      {/* Top Banner Alert Feedback */}
+      {feedback && (
+        <div className={`p-4 rounded-xl border flex items-start gap-2.5 text-xs ${
+          feedback.type === "success" 
+            ? "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/60 text-emerald-600 dark:text-emerald-400"
+            : "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400"
+        }`}>
+          {feedback.type === "success" ? <CheckCircle2 className="w-4.5 h-4.5 shrink-0" /> : <AlertCircle className="w-4.5 h-4.5 shrink-0" />}
+          <span>{feedback.msg}</span>
         </div>
+      )}
 
-        {/* Homepage Hero Builder */}
-        <div className="border border-zinc-200 dark:border-zinc-900 rounded-xl p-5 bg-white dark:bg-zinc-950 shadow-luxury-sm">
-          <h3 className="text-xs font-mono font-bold tracking-widest text-zinc-950 dark:text-white uppercase mb-4 pb-2 border-b border-zinc-100 dark:border-zinc-900 flex items-center gap-1.5">
-            <Globe className="w-4 h-4 text-zinc-400" />
-            Homepage Hero Visual Builder
-          </h3>
-          <div className="flex flex-col gap-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1">
-                <span>Hero Title Headline</span>
-                <input
-                  type="text"
-                  value={settings.homepage_hero?.headline || ""}
-                  onChange={(e) => updateSettingValue("homepage_hero.headline", e.target.value)}
-                  className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs text-black dark:text-white font-sans font-bold"
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <span>Hero Subtitle Description</span>
-                <input
-                  type="text"
-                  value={settings.homepage_hero?.subheadline || ""}
-                  onChange={(e) => updateSettingValue("homepage_hero.subheadline", e.target.value)}
-                  className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs text-black dark:text-white font-sans"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1">
-                <span>Hero Button Text</span>
-                <input
-                  type="text"
-                  value={settings.homepage_hero?.ctaText || ""}
-                  onChange={(e) => updateSettingValue("homepage_hero.ctaText", e.target.value)}
-                  className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs text-black dark:text-white font-sans"
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <span>Hero Button Link</span>
-                <input
-                  type="text"
-                  value={settings.homepage_hero?.ctaLink || ""}
-                  onChange={(e) => updateSettingValue("homepage_hero.ctaLink", e.target.value)}
-                  className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs text-black dark:text-white font-sans"
-                />
-              </div>
-            </div>
-
-            {/* Background Image Upload Card */}
-            <div 
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDropUpload(e, "homepage_hero.heroImage")}
-              className="border border-dashed border-zinc-200 dark:border-zinc-800 p-4 rounded-xl flex flex-col gap-3"
-            >
-              <span className="font-bold text-[10px] uppercase text-zinc-500">Hero Background Image (Drag & Drop support)</span>
-              
-              <div className="flex flex-col sm:flex-row items-center gap-4">
-                <div className="w-20 h-20 border border-zinc-200 dark:border-zinc-800 rounded-lg flex items-center justify-center bg-zinc-50 dark:bg-zinc-900 shrink-0 overflow-hidden">
-                  {settings.homepage_hero?.heroImage ? (
-                    <img src={settings.homepage_hero.heroImage} alt="Hero image" className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-[9px] text-zinc-400">NO BACKGROUND</span>
-                  )}
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => openPicker("homepage_hero.heroImage", "image")}
-                    className="px-3 py-1.5 border border-zinc-300 dark:border-zinc-800 rounded font-semibold text-[10px] bg-white dark:bg-zinc-900 hover:border-black dark:hover:border-white"
-                  >
-                    CHOOSE IMAGE
-                  </button>
-                  <label className="px-3 py-1.5 border border-zinc-300 dark:border-zinc-800 rounded font-semibold text-[10px] bg-white dark:bg-zinc-900 hover:border-black dark:hover:border-white cursor-pointer">
-                    UPLOAD NEW
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => e.target.files?.[0] && triggerDirectUpload(e.target.files[0], "homepage_hero.heroImage")}
-                      className="hidden"
-                    />
-                  </label>
-                  {settings.homepage_hero?.heroImage && (
-                    <button
-                      type="button"
-                      onClick={() => deleteSettingValue("homepage_hero.heroImage")}
-                      className="px-3 py-1.5 border border-red-200 dark:border-red-950 text-red-500 rounded font-semibold text-[10px] hover:bg-red-50"
-                    >
-                      DELETE
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Background Video Upload Card */}
-            <div 
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDropUpload(e, "homepage_hero.heroVideo")}
-              className="border border-dashed border-zinc-200 dark:border-zinc-800 p-4 rounded-xl flex flex-col gap-3"
-            >
-              <span className="font-bold text-[10px] uppercase text-zinc-500">Hero Background Video (Optional)</span>
-              
-              <div className="flex flex-col sm:flex-row items-center gap-4">
-                <div className="w-20 h-20 border border-zinc-200 dark:border-zinc-800 rounded-lg flex items-center justify-center bg-zinc-50 dark:bg-zinc-900 shrink-0 overflow-hidden text-center">
-                  {settings.homepage_hero?.heroVideo ? (
-                    <span className="text-[9px] text-zinc-800 dark:text-zinc-200 font-bold truncate p-1 max-w-[80px] block">{settings.homepage_hero.heroVideo}</span>
-                  ) : (
-                    <span className="text-[9px] text-zinc-400">NO VIDEO</span>
-                  )}
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => openPicker("homepage_hero.heroVideo", "video")}
-                    className="px-3 py-1.5 border border-zinc-300 dark:border-zinc-800 rounded font-semibold text-[10px] bg-white dark:bg-zinc-900 hover:border-black dark:hover:border-white"
-                  >
-                    CHOOSE VIDEO
-                  </button>
-                  <label className="px-3 py-1.5 border border-zinc-300 dark:border-zinc-800 rounded font-semibold text-[10px] bg-white dark:bg-zinc-900 hover:border-black dark:hover:border-white cursor-pointer">
-                    UPLOAD NEW
-                    <input
-                      type="file"
-                      accept="video/*"
-                      onChange={(e) => e.target.files?.[0] && triggerDirectUpload(e.target.files[0], "homepage_hero.heroVideo")}
-                      className="hidden"
-                    />
-                  </label>
-                  {settings.homepage_hero?.heroVideo && (
-                    <button
-                      type="button"
-                      onClick={() => deleteSettingValue("homepage_hero.heroVideo")}
-                      className="px-3 py-1.5 border border-red-200 dark:border-red-950 text-red-500 rounded font-semibold text-[10px] hover:bg-red-50"
-                    >
-                      DELETE
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <button
-              onClick={() => handleSave("homepage_hero", settings.homepage_hero)}
-              disabled={loading}
-              className="bg-black hover:bg-zinc-850 dark:bg-white dark:text-black dark:hover:bg-zinc-100 text-white font-bold py-2.5 rounded mt-1 shadow-luxury-sm"
-            >
-              SAVE HERO BUILDER
-            </button>
-          </div>
+      {/* Control Bar: Search & Status Indicator */}
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-zinc-50 dark:bg-zinc-900 p-3 rounded-xl border border-zinc-200 dark:border-zinc-800">
+        <div className="flex items-center gap-2 flex-1 min-w-[240px]">
+          <Search className="w-4 h-4 text-zinc-400" />
+          <input
+            type="text"
+            placeholder="Search Master Control Center settings..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded px-3 py-1.5 text-xs"
+          />
         </div>
-
-        {/* Homepage Section Order & Visibility Control Center */}
-        <div className="border border-zinc-200 dark:border-zinc-900 rounded-xl p-5 bg-white dark:bg-zinc-950 shadow-luxury-sm">
-          <h3 className="text-xs font-mono font-bold tracking-widest text-zinc-950 dark:text-white uppercase mb-4 pb-2 border-b border-zinc-100 dark:border-zinc-900 flex items-center gap-1.5">
-            <Globe className="w-4 h-4 text-zinc-400" />
-            Homepage Section Order & Visibility Controls
-          </h3>
-          <div className="flex flex-col gap-4 font-mono text-xs">
-            <span className="text-[10px] text-zinc-500 font-sans">
-              Toggle visibility or adjust the sequence order of homepage sections below:
-            </span>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {[
-                { key: "hero", label: "Main Hero Banner" },
-                { key: "about", label: "About & Craftsmanship" },
-                { key: "categories", label: "Specialized Departments" },
-                { key: "products", label: "Featured Showcase" },
-                { key: "facility", label: "Manufacturing Facility" },
-                { key: "album", label: "Instrument Album & Gallery" },
-                { key: "videos", label: "Manufacturing Process Media" },
-                { key: "global", label: "Commercial B2B Logistics" },
-                { key: "contact", label: "Commercial Inquiry Form" }
-              ].map((sec, idx) => (
-                <div key={sec.key} className="p-3 border border-zinc-200 dark:border-zinc-850 rounded-lg bg-zinc-50/50 dark:bg-zinc-900/40 flex items-center justify-between">
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={settings.section_visibility?.[sec.key] !== false}
-                      onChange={(e) => updateSettingValue(`section_visibility.${sec.key}`, e.target.checked)}
-                      className="rounded accent-black dark:accent-white"
-                    />
-                    <span className="font-bold text-[11px] text-zinc-900 dark:text-white uppercase">{sec.label}</span>
-                  </label>
-
-                  <span className="text-[9px] text-zinc-400">Position #{idx + 1}</span>
-                </div>
-              ))}
-            </div>
-
-            <button
-              onClick={() => handleSave("section_visibility", settings.section_visibility)}
-              disabled={loading}
-              className="bg-black hover:bg-zinc-850 dark:bg-white dark:text-black dark:hover:bg-zinc-100 text-white font-bold py-2.5 rounded mt-1 shadow-luxury-sm"
-            >
-              SAVE SECTION VISIBILITY & ORDER
-            </button>
-          </div>
+        <div className="flex items-center gap-3">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-[10px] uppercase">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            LIVE PERSISTENCE ACTIVE
+          </span>
         </div>
-
-        {/* Corporate PDFs Assets */}
-        <div className="border border-zinc-200 dark:border-zinc-900 rounded-xl p-5 bg-white dark:bg-zinc-950 shadow-luxury-sm">
-          <h3 className="text-xs font-mono font-bold tracking-widest text-zinc-950 dark:text-white uppercase mb-4 pb-2 border-b border-zinc-100 dark:border-zinc-900 flex items-center gap-1.5">
-            <FileText className="w-4 h-4 text-zinc-400" />
-            Corporate PDF Document Downloads
-          </h3>
-          <div className="flex flex-col gap-6">
-            
-            {/* Catalog PDF */}
-            <div className="border-b border-zinc-100 dark:border-zinc-900 pb-4 flex flex-col gap-2">
-              <span className="font-bold text-[10px] uppercase text-zinc-500">Product Catalog PDF</span>
-              <div className="flex items-center gap-3">
-                <FileText className="w-8 h-8 text-red-500 shrink-0" />
-                <div className="overflow-hidden flex-grow">
-                  <span className="font-bold text-zinc-800 dark:text-zinc-250 truncate block">
-                    {settings.branding?.catalogPdf || "Not configured"}
-                  </span>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => openPicker("branding.catalogPdf", "pdf")}
-                    className="px-2 py-1.5 border border-zinc-300 dark:border-zinc-800 rounded font-semibold text-[9px] bg-white dark:bg-zinc-900 hover:border-black"
-                  >
-                    CHOOSE
-                  </button>
-                  <label className="px-2 py-1.5 border border-zinc-300 dark:border-zinc-800 rounded font-semibold text-[9px] bg-white dark:bg-zinc-900 hover:border-black cursor-pointer">
-                    UPLOAD
-                    <input
-                      type="file"
-                      accept=".pdf"
-                      onChange={(e) => e.target.files?.[0] && triggerDirectUpload(e.target.files[0], "branding.catalogPdf")}
-                      className="hidden"
-                    />
-                  </label>
-                  {settings.branding?.catalogPdf && (
-                    <button
-                      type="button"
-                      onClick={() => deleteSettingValue("branding.catalogPdf")}
-                      className="p-1.5 border border-red-200 dark:border-red-950 text-red-500 rounded hover:bg-red-50"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Company Profile PDF */}
-            <div className="border-b border-zinc-100 dark:border-zinc-900 pb-4 flex flex-col gap-2">
-              <span className="font-bold text-[10px] uppercase text-zinc-500">Company Profile PDF</span>
-              <div className="flex items-center gap-3">
-                <FileText className="w-8 h-8 text-red-500 shrink-0" />
-                <div className="overflow-hidden flex-grow">
-                  <span className="font-bold text-zinc-800 dark:text-zinc-250 truncate block">
-                    {settings.branding?.profilePdf || "Not configured"}
-                  </span>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => openPicker("branding.profilePdf", "pdf")}
-                    className="px-2 py-1.5 border border-zinc-300 dark:border-zinc-800 rounded font-semibold text-[9px] bg-white dark:bg-zinc-900 hover:border-black"
-                  >
-                    CHOOSE
-                  </button>
-                  <label className="px-2 py-1.5 border border-zinc-300 dark:border-zinc-800 rounded font-semibold text-[9px] bg-white dark:bg-zinc-900 hover:border-black cursor-pointer">
-                    UPLOAD
-                    <input
-                      type="file"
-                      accept=".pdf"
-                      onChange={(e) => e.target.files?.[0] && triggerDirectUpload(e.target.files[0], "branding.profilePdf")}
-                      className="hidden"
-                    />
-                  </label>
-                  {settings.branding?.profilePdf && (
-                    <button
-                      type="button"
-                      onClick={() => deleteSettingValue("branding.profilePdf")}
-                      className="p-1.5 border border-red-200 dark:border-red-950 text-red-500 rounded hover:bg-red-50"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Brochure PDF */}
-            <div className="border-b border-zinc-100 dark:border-zinc-900 pb-4 flex flex-col gap-2">
-              <span className="font-bold text-[10px] uppercase text-zinc-500">Brochure PDF</span>
-              <div className="flex items-center gap-3">
-                <FileText className="w-8 h-8 text-red-500 shrink-0" />
-                <div className="overflow-hidden flex-grow">
-                  <span className="font-bold text-zinc-800 dark:text-zinc-250 truncate block">
-                    {settings.branding?.brochurePdf || "Not configured"}
-                  </span>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => openPicker("branding.brochurePdf", "pdf")}
-                    className="px-2 py-1.5 border border-zinc-300 dark:border-zinc-800 rounded font-semibold text-[9px] bg-white dark:bg-zinc-900 hover:border-black"
-                  >
-                    CHOOSE
-                  </button>
-                  <label className="px-2 py-1.5 border border-zinc-300 dark:border-zinc-800 rounded font-semibold text-[9px] bg-white dark:bg-zinc-900 hover:border-black cursor-pointer">
-                    UPLOAD
-                    <input
-                      type="file"
-                      accept=".pdf"
-                      onChange={(e) => e.target.files?.[0] && triggerDirectUpload(e.target.files[0], "branding.brochurePdf")}
-                      className="hidden"
-                    />
-                  </label>
-                  {settings.branding?.brochurePdf && (
-                    <button
-                      type="button"
-                      onClick={() => deleteSettingValue("branding.brochurePdf")}
-                      className="p-1.5 border border-red-200 dark:border-red-950 text-red-500 rounded hover:bg-red-50"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Certificates PDF */}
-            <div className="border-b border-zinc-100 dark:border-zinc-900 pb-4 flex flex-col gap-2">
-              <span className="font-bold text-[10px] uppercase text-zinc-500">Certificates PDF</span>
-              <div className="flex items-center gap-3">
-                <FileText className="w-8 h-8 text-red-500 shrink-0" />
-                <div className="overflow-hidden flex-grow">
-                  <span className="font-bold text-zinc-800 dark:text-zinc-250 truncate block">
-                    {settings.branding?.certificatesPdf || "Not configured"}
-                  </span>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => openPicker("branding.certificatesPdf", "pdf")}
-                    className="px-2 py-1.5 border border-zinc-300 dark:border-zinc-800 rounded font-semibold text-[9px] bg-white dark:bg-zinc-900 hover:border-black"
-                  >
-                    CHOOSE
-                  </button>
-                  <label className="px-2 py-1.5 border border-zinc-300 dark:border-zinc-800 rounded font-semibold text-[9px] bg-white dark:bg-zinc-900 hover:border-black cursor-pointer">
-                    UPLOAD
-                    <input
-                      type="file"
-                      accept=".pdf"
-                      onChange={(e) => e.target.files?.[0] && triggerDirectUpload(e.target.files[0], "branding.certificatesPdf")}
-                      className="hidden"
-                    />
-                  </label>
-                  {settings.branding?.certificatesPdf && (
-                    <button
-                      type="button"
-                      onClick={() => deleteSettingValue("branding.certificatesPdf")}
-                      className="p-1.5 border border-red-200 dark:border-red-950 text-red-500 rounded hover:bg-red-50"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Document Visibility Controls */}
-            <div className="pt-2 border-t border-zinc-150 dark:border-zinc-900 flex flex-col gap-3">
-              <span className="font-bold text-[10px] uppercase text-zinc-500 font-mono">Document Visibility & Access Controls</span>
-              
-              <div className="grid grid-cols-3 gap-3">
-                <div className="flex flex-col gap-1">
-                  <span className="text-[9px] font-mono text-zinc-400">Profile Visibility</span>
-                  <select
-                    value={settings.branding?.profileVisibility || "public"}
-                    onChange={(e) => updateSettingValue("branding.profileVisibility", e.target.value)}
-                    className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-1.5 text-xs text-black dark:text-white font-mono"
-                  >
-                    <option value="public">Public (Direct Download)</option>
-                    <option value="inquiry_required">Available After Inquiry</option>
-                    <option value="disabled">Disabled</option>
-                  </select>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <span className="text-[9px] font-mono text-zinc-400">Brochure Visibility</span>
-                  <select
-                    value={settings.branding?.brochureVisibility || "public"}
-                    onChange={(e) => updateSettingValue("branding.brochureVisibility", e.target.value)}
-                    className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-1.5 text-xs text-black dark:text-white font-mono"
-                  >
-                    <option value="public">Public (Direct Download)</option>
-                    <option value="inquiry_required">Available After Inquiry</option>
-                    <option value="disabled">Disabled</option>
-                  </select>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <span className="text-[9px] font-mono text-zinc-400">Certificates Visibility</span>
-                  <select
-                    value={settings.branding?.certificatesVisibility || "public"}
-                    onChange={(e) => updateSettingValue("branding.certificatesVisibility", e.target.value)}
-                    className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-1.5 text-xs text-black dark:text-white font-mono"
-                  >
-                    <option value="public">Public (Direct Download)</option>
-                    <option value="inquiry_required">Available After Inquiry</option>
-                    <option value="disabled">Disabled</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <button
-              onClick={() => handleSave("branding", settings.branding)}
-              disabled={loading}
-              className="bg-black hover:bg-zinc-850 dark:bg-white dark:text-black dark:hover:bg-zinc-100 text-white font-bold py-2.5 rounded mt-1 shadow-luxury-sm"
-            >
-              SAVE COMPANY DOCUMENTS & ACCESS CONTROLS
-            </button>
-          </div>
-        </div>
-
-        {/* Contact Info & Socials */}
-        <div className="border border-zinc-200 dark:border-zinc-900 rounded-xl p-5 bg-white dark:bg-zinc-950 shadow-luxury-sm">
-          <h3 className="text-xs font-mono font-bold tracking-widest text-zinc-950 dark:text-white uppercase mb-4 pb-2 border-b border-zinc-100 dark:border-zinc-900 flex items-center gap-1.5">
-            <Mail className="w-4 h-4 text-zinc-400" />
-            Contact & Social Media Channels
-          </h3>
-          <div className="flex flex-col gap-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1">
-                <span>Corporate Email *</span>
-                <input
-                  type="email"
-                  value={settings.contact_info?.email || ""}
-                  onChange={(e) => updateSettingValue("contact_info.email", e.target.value)}
-                  className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs text-black dark:text-white font-mono"
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <span>Phone Number *</span>
-                <input
-                  type="text"
-                  value={settings.contact_info?.phone || ""}
-                  onChange={(e) => updateSettingValue("contact_info.phone", e.target.value)}
-                  className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs text-black dark:text-white font-mono"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1">
-                <span>WhatsApp Hotline Number</span>
-                <input
-                  type="text"
-                  value={settings.contact_info?.whatsapp || ""}
-                  onChange={(e) => updateSettingValue("contact_info.whatsapp", e.target.value)}
-                  className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs text-black dark:text-white font-mono"
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <span>Address Location</span>
-                <input
-                  type="text"
-                  value={settings.contact_info?.address || ""}
-                  onChange={(e) => updateSettingValue("contact_info.address", e.target.value)}
-                  className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs text-black dark:text-white"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div className="flex flex-col gap-1">
-                <span>Instagram Link</span>
-                <input
-                  type="text"
-                  value={settings.seo_settings?.socialLinks?.instagram || ""}
-                  onChange={(e) => updateSettingValue("seo_settings.socialLinks.instagram", e.target.value)}
-                  className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs text-black dark:text-white font-mono"
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <span>YouTube Link</span>
-                <input
-                  type="text"
-                  value={settings.seo_settings?.socialLinks?.youtube || ""}
-                  onChange={(e) => updateSettingValue("seo_settings.socialLinks.youtube", e.target.value)}
-                  className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs text-black dark:text-white font-mono"
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <span>LinkedIn Link</span>
-                <input
-                  type="text"
-                  value={settings.seo_settings?.socialLinks?.linkedin || ""}
-                  onChange={(e) => updateSettingValue("seo_settings.socialLinks.linkedin", e.target.value)}
-                  className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs text-black dark:text-white font-mono"
-                />
-              </div>
-            </div>
-
-            <button
-              onClick={() => {
-                handleSave("contact_info", settings.contact_info);
-                handleSave("seo_settings", settings.seo_settings);
-              }}
-              disabled={loading}
-              className="bg-black hover:bg-zinc-850 dark:bg-white dark:text-black dark:hover:bg-zinc-100 text-white font-bold py-2.5 rounded mt-1 shadow-luxury-sm"
-            >
-              SAVE CONTACT & SOCIALS
-            </button>
-          </div>
-        </div>
-
-        {/* WhatsApp & Integration Settings */}
-        <div className="border border-zinc-200 dark:border-zinc-900 rounded-xl p-5 bg-white dark:bg-zinc-950 shadow-luxury-sm">
-          <h3 className="text-xs font-mono font-bold tracking-widest text-zinc-950 dark:text-white uppercase mb-4 pb-2 border-b border-zinc-100 dark:border-zinc-900 flex items-center gap-1.5">
-            <Globe className="w-4 h-4 text-emerald-500" />
-            WhatsApp Integration & Animation Controls
-          </h3>
-          <div className="flex flex-col gap-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1">
-                <span>WhatsApp Dedicated Number</span>
-                <input
-                  type="text"
-                  value={settings.whatsapp_settings?.phone || ""}
-                  onChange={(e) => updateSettingValue("whatsapp_settings.phone", e.target.value)}
-                  placeholder="+923000000000"
-                  className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs text-black dark:text-white font-mono"
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <span>Default Initial Message</span>
-                <input
-                  type="text"
-                  value={settings.whatsapp_settings?.defaultMessage || ""}
-                  onChange={(e) => updateSettingValue("whatsapp_settings.defaultMessage", e.target.value)}
-                  placeholder="Hello ORIVENCE Team..."
-                  className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs text-black dark:text-white font-sans"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4 font-mono text-[10px]">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settings.whatsapp_settings?.enableHeader !== false}
-                  onChange={(e) => updateSettingValue("whatsapp_settings.enableHeader", e.target.checked)}
-                  className="rounded accent-black dark:accent-white"
-                />
-                <span>Enable Header WhatsApp Button</span>
-              </label>
-
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settings.whatsapp_settings?.enableFloating !== false}
-                  onChange={(e) => updateSettingValue("whatsapp_settings.enableFloating", e.target.checked)}
-                  className="rounded accent-black dark:accent-white"
-                />
-                <span>Enable Floating WhatsApp Button</span>
-              </label>
-
-              <div className="flex flex-col gap-1">
-                <span className="text-zinc-400">Animation Intensity</span>
-                <select
-                  value={settings.animation_settings?.intensity || "normal"}
-                  onChange={(e) => updateSettingValue("animation_settings.intensity", e.target.value)}
-                  className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-1 text-xs text-black dark:text-white"
-                >
-                  <option value="high">High (Full Motion)</option>
-                  <option value="normal">Normal (Balanced)</option>
-                  <option value="reduced">Reduced (Performance Mode)</option>
-                </select>
-              </div>
-            </div>
-
-            <button
-              onClick={() => {
-                handleSave("whatsapp_settings", settings.whatsapp_settings);
-                handleSave("animation_settings", settings.animation_settings);
-              }}
-              disabled={loading}
-              className="bg-black hover:bg-zinc-850 dark:bg-white dark:text-black dark:hover:bg-zinc-100 text-white font-bold py-2.5 rounded mt-1 shadow-luxury-sm"
-            >
-              SAVE INTEGRATION & ANIMATION SETTINGS
-            </button>
-          </div>
-        </div>
-
       </div>
 
-      {/* RIGHT SIDE: Admin Profile & Credentials Settings */}
-      <div className="lg:col-span-4">
-        <div className="glass-panel p-5 rounded-2xl border border-zinc-200 dark:border-zinc-900 shadow-luxury-sm bg-white dark:bg-zinc-950 sticky top-24 flex flex-col gap-5">
-          <h3 className="text-xs font-mono font-bold tracking-widest uppercase mb-2 pb-2 border-b border-zinc-100 dark:border-zinc-900 flex items-center gap-1.5">
-            <Lock className="w-4 h-4 text-zinc-400" />
-            Admin Credentials
+      {/* Sub-Tab Navigation Bar */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-zinc-200 dark:border-zinc-800 no-scrollbar">
+        {navTabs.map((tab) => {
+          const Icon = tab.icon;
+          const active = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg font-bold text-[11px] uppercase tracking-wider whitespace-nowrap transition-colors ${
+                active 
+                  ? "bg-black text-white dark:bg-white dark:text-black shadow-luxury-sm"
+                  : "bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-800"
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* TAB 1: BUSINESS IDENTITY & CONTACT */}
+      {activeTab === "business" && (
+        <div className="flex flex-col gap-6 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-900 p-6 rounded-2xl shadow-luxury-sm">
+          <h3 className="font-bold text-sm text-zinc-900 dark:text-white uppercase tracking-wider border-b border-zinc-100 dark:border-zinc-900 pb-3 flex items-center gap-2">
+            <Building2 className="w-4 h-4 text-emerald-500" />
+            Corporate Website Identity Manager (24 Complete Fields)
           </h3>
 
-          <form onSubmit={handleCredentialsSubmit} className="flex flex-col gap-4">
-            <p className="text-[10px] text-zinc-500 leading-relaxed">
-              Use this form to securely update the portal username and password. Passes securely to database with hashing.
-            </p>
-
-            <div className="flex flex-col gap-1.5">
-              <span>New Admin Username</span>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Company Legal Name</label>
               <input
                 type="text"
-                value={newUsername}
-                onChange={(e) => setNewUsername(e.target.value)}
-                placeholder="admin"
-                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2.5 text-xs text-black dark:text-white font-mono"
+                value={settings.business_info?.companyName || "ORIVENCE SURGICAL GMBH"}
+                onChange={(e) => updateSettingValue("business_info.companyName", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
               />
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <span>New Security Password</span>
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Brand Name</label>
               <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="••••••••••••"
-                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2.5 text-xs text-black dark:text-white font-mono"
+                type="text"
+                value={settings.business_info?.brandName || "ORIVENCE"}
+                onChange={(e) => updateSettingValue("business_info.brandName", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
               />
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <span>Confirm Password</span>
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Corporate Tagline</label>
               <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="••••••••••••"
-                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2.5 text-xs text-black dark:text-white font-mono"
+                type="text"
+                value={settings.business_info?.tagline || "GERMAN SURGICAL PRECISION IMPLEMENTS"}
+                onChange={(e) => updateSettingValue("business_info.tagline", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
               />
             </div>
 
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Primary Telephone</label>
+              <input
+                type="text"
+                value={settings.contact_info?.phone || "+49 (7461) 9876-0"}
+                onChange={(e) => updateSettingValue("contact_info.phone", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Mobile Phone</label>
+              <input
+                type="text"
+                value={settings.contact_info?.mobile || "+49 170 9876543"}
+                onChange={(e) => updateSettingValue("contact_info.mobile", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">WhatsApp Hotline</label>
+              <input
+                type="text"
+                value={settings.contact_info?.whatsapp || "+49 170 1234567"}
+                onChange={(e) => updateSettingValue("contact_info.whatsapp", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Primary Inquiries Email</label>
+              <input
+                type="email"
+                value={settings.contact_info?.email || "inquiry@orivence.de"}
+                onChange={(e) => updateSettingValue("contact_info.email", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Support Email</label>
+              <input
+                type="email"
+                value={settings.contact_info?.supportEmail || "support@orivence.de"}
+                onChange={(e) => updateSettingValue("contact_info.supportEmail", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Privacy & Compliance Email</label>
+              <input
+                type="email"
+                value={settings.contact_info?.privacyEmail || "privacy@orivence.de"}
+                onChange={(e) => updateSettingValue("contact_info.privacyEmail", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="md:col-span-3 flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Facility Address</label>
+              <input
+                type="text"
+                value={settings.contact_info?.address || "MedTech Park 4B, 78532 Tuttlingen, Germany"}
+                onChange={(e) => updateSettingValue("contact_info.address", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="md:col-span-2 flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Short Corporate Summary</label>
+              <input
+                type="text"
+                value={settings.business_info?.shortDescription || "German manufacturer of surgical implements & micro-tweezers complying with ISO 13485."}
+                onChange={(e) => updateSettingValue("business_info.shortDescription", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Business Hours</label>
+              <input
+                type="text"
+                value={settings.contact_info?.businessHours || "Mon - Fri: 08:00 - 17:00 (CET)"}
+                onChange={(e) => updateSettingValue("contact_info.businessHours", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Commercial Registration No.</label>
+              <input
+                type="text"
+                value={settings.business_info?.registrationNumber || "HRB 765432 (Amtsgericht Stuttgart)"}
+                onChange={(e) => updateSettingValue("business_info.registrationNumber", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">VAT ID / USt-IdNr.</label>
+              <input
+                type="text"
+                value={settings.business_info?.vatNumber || "DE 987654321"}
+                onChange={(e) => updateSettingValue("business_info.vatNumber", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Tax Registration Number</label>
+              <input
+                type="text"
+                value={settings.business_info?.taxNumber || "21/456/78901"}
+                onChange={(e) => updateSettingValue("business_info.taxNumber", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-zinc-100 dark:border-zinc-900">
             <button
-              type="submit"
-              disabled={credLoading || (!newUsername.trim() && !newPassword.trim())}
-              className="bg-black hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-100 text-white py-3 rounded-lg font-bold font-mono disabled:opacity-50 transition-all shadow-luxury-md"
+              onClick={async () => {
+                await handleSaveGroup("business_info", settings.business_info);
+                await handleSaveGroup("contact_info", settings.contact_info);
+              }}
+              disabled={loading}
+              className="bg-black dark:bg-white text-white dark:text-black font-bold px-5 py-2.5 rounded-lg text-xs uppercase"
             >
-              {credLoading ? "UPDATING SECURE SYS..." : "UPDATE CREDENTIALS"}
+              SAVE WEBSITE IDENTITY
             </button>
-          </form>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Reuse Picker Modal */}
+      {/* TAB 2: SOCIAL MEDIA MANAGER */}
+      {activeTab === "social" && (
+        <div className="flex flex-col gap-6 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-900 p-6 rounded-2xl shadow-luxury-sm">
+          <h3 className="font-bold text-sm text-zinc-900 dark:text-white uppercase tracking-wider border-b border-zinc-100 dark:border-zinc-900 pb-3 flex items-center gap-2">
+            <Share2 className="w-4 h-4 text-emerald-500" />
+            Social Media Platform Manager (8 Platforms)
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[
+              { id: "facebook", name: "Facebook" },
+              { id: "instagram", name: "Instagram" },
+              { id: "linkedin", name: "LinkedIn" },
+              { id: "youtube", name: "YouTube" },
+              { id: "twitter", name: "X (Twitter)" },
+              { id: "tiktok", name: "TikTok" },
+              { id: "pinterest", name: "Pinterest" },
+              { id: "threads", name: "Threads" }
+            ].map((platform) => {
+              const item = settings.social_links?.[platform.id] || {};
+              return (
+                <div key={platform.id} className="border border-zinc-200 dark:border-zinc-800 p-4 rounded-xl flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs uppercase">{platform.name}</span>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <span className="text-[10px] text-zinc-500 uppercase">{item.enabled !== false ? "ENABLED" : "DISABLED"}</span>
+                      <input
+                        type="checkbox"
+                        checked={item.enabled !== false}
+                        onChange={(e) => updateSettingValue(`social_links.${platform.id}.enabled`, e.target.checked)}
+                        className="rounded"
+                      />
+                    </label>
+                  </div>
+                  <input
+                    type="url"
+                    placeholder={`https://${platform.id}.com/orivencesurgical`}
+                    value={item.url || ""}
+                    onChange={(e) => updateSettingValue(`social_links.${platform.id}.url`, e.target.value)}
+                    className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+                  />
+                  <div className="flex items-center justify-between text-[10px] text-zinc-500 pt-1">
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center gap-1 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={item.showInFooter !== false}
+                          onChange={(e) => updateSettingValue(`social_links.${platform.id}.showInFooter`, e.target.checked)}
+                        />
+                        Footer
+                      </label>
+                      <label className="flex items-center gap-1 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={item.showInHeader !== false}
+                          onChange={(e) => updateSettingValue(`social_links.${platform.id}.showInHeader`, e.target.checked)}
+                        />
+                        Header
+                      </label>
+                    </div>
+                    <label className="flex items-center gap-1 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={item.openNewTab !== false}
+                        onChange={(e) => updateSettingValue(`social_links.${platform.id}.openNewTab`, e.target.checked)}
+                      />
+                      New Tab
+                    </label>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-zinc-100 dark:border-zinc-900">
+            <button
+              onClick={() => handleSaveGroup("social_links", settings.social_links)}
+              disabled={loading}
+              className="bg-black dark:bg-white text-white dark:text-black font-bold px-5 py-2.5 rounded-lg text-xs uppercase"
+            >
+              SAVE SOCIAL MEDIA LINKS
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: BRANDING */}
+      {activeTab === "branding" && (
+        <div className="flex flex-col gap-6 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-900 p-6 rounded-2xl shadow-luxury-sm">
+          <h3 className="font-bold text-sm text-zinc-900 dark:text-white uppercase tracking-wider border-b border-zinc-100 dark:border-zinc-900 pb-3 flex items-center gap-2">
+            <Palette className="w-4 h-4 text-emerald-500" />
+            Corporate Branding & Logo Management (10 Asset Slots)
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Header Logo Text</label>
+              <input
+                type="text"
+                value={settings.branding?.logoText || "ORIVENCE"}
+                onChange={(e) => updateSettingValue("branding.logoText", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Logo Subtext</label>
+              <input
+                type="text"
+                value={settings.branding?.logoSubtext || "SURGICAL"}
+                onChange={(e) => updateSettingValue("branding.logoSubtext", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+          </div>
+
+          {/* 10 Branding Upload Slots */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            {[
+              { id: "logoUrl", label: "Main Brand Logo" },
+              { id: "lightLogoUrl", label: "Light Logo (Dark Mode)" },
+              { id: "darkLogoUrl", label: "Dark Logo (Light Mode)" },
+              { id: "footerLogoUrl", label: "Footer Logo" },
+              { id: "welcomeLogoUrl", label: "Welcome Screen Logo" },
+              { id: "loadingLogoUrl", label: "Loading Screen Logo" },
+              { id: "faviconUrl", label: "Favicon (.ico/.png)" },
+              { id: "appleTouchIconUrl", label: "Apple Touch Icon" },
+              { id: "ogImageUrl", label: "Open Graph Image" },
+              { id: "twitterCardUrl", label: "Twitter Card Image" }
+            ].map((slot) => {
+              const currentUrl = settings.branding?.[slot.id];
+              return (
+                <div key={slot.id} className="border border-dashed border-zinc-200 dark:border-zinc-800 p-3 rounded-xl flex flex-col gap-2">
+                  <span className="font-bold text-[10px] uppercase text-zinc-500 truncate">{slot.label}</span>
+                  <div className="w-full h-16 border border-zinc-200 dark:border-zinc-800 rounded flex items-center justify-center bg-zinc-50 dark:bg-zinc-900 overflow-hidden relative">
+                    {currentUrl ? (
+                      <img src={currentUrl} alt={slot.label} className="max-h-full max-w-full object-contain p-1" />
+                    ) : (
+                      <span className="text-[9px] text-zinc-400">NO IMAGE</span>
+                    )}
+                  </div>
+                  <input
+                    type="url"
+                    placeholder="https://..."
+                    value={currentUrl || ""}
+                    onChange={(e) => updateSettingValue(`branding.${slot.id}`, e.target.value)}
+                    className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-1.5 text-[10px]"
+                  />
+                  <div className="flex items-center gap-1.5">
+                    <button type="button" onClick={() => openPicker(`branding.${slot.id}`, "image")} className="flex-1 px-2 py-1 bg-zinc-100 dark:bg-zinc-800 rounded font-bold text-[9px] uppercase">Picker</button>
+                    <label className="flex-1 px-2 py-1 bg-zinc-100 dark:bg-zinc-800 rounded font-bold text-[9px] uppercase cursor-pointer text-center">
+                      Upload
+                      <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && triggerDirectUpload(e.target.files[0], `branding.${slot.id}`)} className="hidden" />
+                    </label>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-zinc-100 dark:border-zinc-900">
+            <button
+              onClick={() => handleSaveGroup("branding", settings.branding)}
+              disabled={loading}
+              className="bg-black dark:bg-white text-white dark:text-black font-bold px-5 py-2.5 rounded-lg text-xs uppercase"
+            >
+              SAVE BRANDING
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: COMPANY & ABOUT */}
+      {activeTab === "company" && (
+        <div className="flex flex-col gap-6 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-900 p-6 rounded-2xl shadow-luxury-sm">
+          <h3 className="font-bold text-sm text-zinc-900 dark:text-white uppercase tracking-wider border-b border-zinc-100 dark:border-zinc-900 pb-3 flex items-center gap-2">
+            <Info className="w-4 h-4 text-emerald-500" />
+            Company Profile, Mission, Vision & Quality Policy
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2 flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">About Company Story & Background</label>
+              <textarea
+                rows={4}
+                value={settings.company_info?.aboutText || ""}
+                onChange={(e) => updateSettingValue("company_info.aboutText", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Corporate Mission Statement</label>
+              <textarea
+                rows={3}
+                value={settings.company_info?.mission || ""}
+                onChange={(e) => updateSettingValue("company_info.mission", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Corporate Vision Statement</label>
+              <textarea
+                rows={3}
+                value={settings.company_info?.vision || ""}
+                onChange={(e) => updateSettingValue("company_info.vision", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Quality Policy & Tolerances</label>
+              <input
+                type="text"
+                value={settings.company_info?.qualityPolicy || ""}
+                onChange={(e) => updateSettingValue("company_info.qualityPolicy", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Certifications & Standards</label>
+              <input
+                type="text"
+                value={settings.company_info?.certifications || "ISO 13485:2016, CE Medical Mark, FDA Registered"}
+                onChange={(e) => updateSettingValue("company_info.certifications", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-zinc-100 dark:border-zinc-900">
+            <button
+              onClick={() => handleSaveGroup("company_info", settings.company_info)}
+              disabled={loading}
+              className="bg-black dark:bg-white text-white dark:text-black font-bold px-5 py-2.5 rounded-lg text-xs uppercase"
+            >
+              SAVE COMPANY DETAILS
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 5: CONTACT PAGE BUILDER */}
+      {activeTab === "contact_page" && (
+        <div className="flex flex-col gap-6 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-900 p-6 rounded-2xl shadow-luxury-sm">
+          <h3 className="font-bold text-sm text-zinc-900 dark:text-white uppercase tracking-wider border-b border-zinc-100 dark:border-zinc-900 pb-3 flex items-center gap-2">
+            <PhoneCall className="w-4 h-4 text-emerald-500" />
+            Contact Page Layout & Information Hotline
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Contact Hotline Phone</label>
+              <input
+                type="text"
+                value={settings.contact_page?.phone || ""}
+                onChange={(e) => updateSettingValue("contact_page.phone", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Contact Email Address</label>
+              <input
+                type="email"
+                value={settings.contact_page?.email || ""}
+                onChange={(e) => updateSettingValue("contact_page.email", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">WhatsApp Sales Direct</label>
+              <input
+                type="text"
+                value={settings.contact_page?.whatsapp || ""}
+                onChange={(e) => updateSettingValue("contact_page.whatsapp", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Emergency Desk Contact</label>
+              <input
+                type="text"
+                value={settings.contact_page?.emergencyContact || ""}
+                onChange={(e) => updateSettingValue("contact_page.emergencyContact", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="md:col-span-2 flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Headquarters Address</label>
+              <input
+                type="text"
+                value={settings.contact_page?.address || ""}
+                onChange={(e) => updateSettingValue("contact_page.address", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-zinc-100 dark:border-zinc-900">
+            <button
+              onClick={() => handleSaveGroup("contact_page", settings.contact_page)}
+              disabled={loading}
+              className="bg-black dark:bg-white text-white dark:text-black font-bold px-5 py-2.5 rounded-lg text-xs uppercase"
+            >
+              SAVE CONTACT PAGE SETTINGS
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 6: HOMEPAGE VISUAL BUILDER */}
+      {activeTab === "homepage" && (
+        <HomepageBuilderTab />
+      )}
+
+      {/* TAB 7: HEADER BUILDER */}
+      {activeTab === "header" && (
+        <div className="flex flex-col gap-6 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-900 p-6 rounded-2xl shadow-luxury-sm">
+          <h3 className="font-bold text-sm text-zinc-900 dark:text-white uppercase tracking-wider border-b border-zinc-100 dark:border-zinc-900 pb-3 flex items-center gap-2">
+            <Globe className="w-4 h-4 text-emerald-500" />
+            Public Navigation Header Builder & Announcement Bar
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2 flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Announcement Bar Text</label>
+              <input
+                type="text"
+                value={settings.header_config?.announcementText || "ISO 13485 CERTIFIED SURGICAL MANUFACTURING — GLOBAL B2B DISPATCH"}
+                onChange={(e) => updateSettingValue("header_config.announcementText", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            {[
+              { id: "stickyHeader", label: "Enable Sticky Navigation Header" },
+              { id: "showAnnouncementBar", label: "Display Top Announcement Banner" },
+              { id: "showTopBar", label: "Display Top Certification & Social Bar" },
+              { id: "showSearch", label: "Display Search Icon / Input" },
+              { id: "showCtaButton", label: "Display B2B RFQ Inquiry Button" },
+              { id: "showWhatsappButton", label: "Display Quick WhatsApp Button" },
+              { id: "showLanguageSwitcher", label: "Display Language Selector" }
+            ].map(opt => (
+              <div key={opt.id} className="border border-zinc-200 dark:border-zinc-800 p-3 rounded-xl flex items-center justify-between">
+                <span className="font-bold text-xs">{opt.label}</span>
+                <input
+                  type="checkbox"
+                  checked={settings.header_config?.[opt.id] !== false}
+                  onChange={(e) => updateSettingValue(`header_config.${opt.id}`, e.target.checked)}
+                  className="rounded"
+                />
+              </div>
+            ))}
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-zinc-100 dark:border-zinc-900">
+            <button
+              onClick={() => handleSaveGroup("header_config", settings.header_config)}
+              disabled={loading}
+              className="bg-black dark:bg-white text-white dark:text-black font-bold px-5 py-2.5 rounded-lg text-xs uppercase"
+            >
+              SAVE HEADER CONFIGURATION
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 8: FOOTER BUILDER */}
+      {activeTab === "footer" && (
+        <div className="flex flex-col gap-6 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-900 p-6 rounded-2xl shadow-luxury-sm">
+          <h3 className="font-bold text-sm text-zinc-900 dark:text-white uppercase tracking-wider border-b border-zinc-100 dark:border-zinc-900 pb-3 flex items-center gap-2">
+            <LayoutTemplate className="w-4 h-4 text-emerald-500" />
+            Website Footer Builder & Copyright Settings
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2 flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Footer Corporate Summary Description</label>
+              <textarea
+                rows={3}
+                value={settings.footer_config?.description || ""}
+                onChange={(e) => updateSettingValue("footer_config.description", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="md:col-span-2 flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Copyright Notice Text</label>
+              <input
+                type="text"
+                value={settings.footer_config?.copyright || `© ${new Date().getFullYear()} ORIVENCE SURGICAL. All rights reserved.`}
+                onChange={(e) => updateSettingValue("footer_config.copyright", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            {[
+              { id: "showQuickLinks", label: "Display Quick Navigation Links" },
+              { id: "showCategoryLinks", label: "Display Product Categories Links" },
+              { id: "showLegalLinks", label: "Display Privacy & Legal Links" },
+              { id: "showNewsletter", label: "Display Newsletter Subscription Form" },
+              { id: "showSocialIcons", label: "Display Social Media Icons" },
+              { id: "showContact", label: "Display Contact & Location Block" }
+            ].map(opt => (
+              <div key={opt.id} className="border border-zinc-200 dark:border-zinc-800 p-3 rounded-xl flex items-center justify-between">
+                <span className="font-bold text-xs">{opt.label}</span>
+                <input
+                  type="checkbox"
+                  checked={settings.footer_config?.[opt.id] !== false}
+                  onChange={(e) => updateSettingValue(`footer_config.${opt.id}`, e.target.checked)}
+                  className="rounded"
+                />
+              </div>
+            ))}
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-zinc-100 dark:border-zinc-900">
+            <button
+              onClick={() => handleSaveGroup("footer_config", settings.footer_config)}
+              disabled={loading}
+              className="bg-black dark:bg-white text-white dark:text-black font-bold px-5 py-2.5 rounded-lg text-xs uppercase"
+            >
+              SAVE FOOTER CONFIGURATION
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 8: SEO & META */}
+      {activeTab === "seo" && (
+        <div className="flex flex-col gap-6 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-900 p-6 rounded-2xl shadow-luxury-sm">
+          <h3 className="font-bold text-sm text-zinc-900 dark:text-white uppercase tracking-wider border-b border-zinc-100 dark:border-zinc-900 pb-3 flex items-center gap-2">
+            <Search className="w-4 h-4 text-emerald-500" />
+            SEO, Meta Tags, Canonical URLs & Search Console Verification
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Default Meta Title</label>
+              <input
+                type="text"
+                value={settings.seo_meta?.defaultTitle || "ORIVENCE SURGICAL | German Surgical Precision Implements"}
+                onChange={(e) => updateSettingValue("seo_meta.defaultTitle", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Canonical Website URL</label>
+              <input
+                type="url"
+                value={settings.seo_meta?.canonicalUrl || "https://orivencesurgical.com"}
+                onChange={(e) => updateSettingValue("seo_meta.canonicalUrl", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="md:col-span-2 flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Default Meta Description</label>
+              <textarea
+                rows={3}
+                value={settings.seo_meta?.defaultDescription || "Manufacturer of ISO 13485 surgical tools, medical tweezers, micro-scissors, and aesthetic implements."}
+                onChange={(e) => updateSettingValue("seo_meta.defaultDescription", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="md:col-span-2 flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">SEO Keywords (Comma Separated)</label>
+              <input
+                type="text"
+                value={settings.seo_meta?.keywords || "Orivence Surgical, Medical grade tweezers, Surgical scissors, ISO 13485, German surgical steel"}
+                onChange={(e) => updateSettingValue("seo_meta.keywords", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Google Search Console Verification Code</label>
+              <input
+                type="text"
+                placeholder="google-site-verification=..."
+                value={settings.seo_meta?.googleSearchConsoleVerification || ""}
+                onChange={(e) => updateSettingValue("seo_meta.googleSearchConsoleVerification", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Bing Webmaster Verification Code</label>
+              <input
+                type="text"
+                placeholder="msvalidate.01=..."
+                value={settings.seo_meta?.bingWebmasterVerification || ""}
+                onChange={(e) => updateSettingValue("seo_meta.bingWebmasterVerification", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-zinc-100 dark:border-zinc-900">
+            <button
+              onClick={() => handleSaveGroup("seo_meta", settings.seo_meta)}
+              disabled={loading}
+              className="bg-black dark:bg-white text-white dark:text-black font-bold px-5 py-2.5 rounded-lg text-xs uppercase"
+            >
+              SAVE SEO & META
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 9: ANALYTICS & SCRIPTS */}
+      {activeTab === "analytics" && (
+        <div className="flex flex-col gap-6 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-900 p-6 rounded-2xl shadow-luxury-sm">
+          <h3 className="font-bold text-sm text-zinc-900 dark:text-white uppercase tracking-wider border-b border-zinc-100 dark:border-zinc-900 pb-3 flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-emerald-500" />
+            Analytics Integration (Google Analytics, GTM, Meta Pixel, Clarity)
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Google Analytics Tracking ID (G-XXXXXXXX)</label>
+              <input
+                type="text"
+                placeholder="G-ORIVENCE123"
+                value={settings.analytics?.gaMeasurementId || ""}
+                onChange={(e) => updateSettingValue("analytics.gaMeasurementId", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Google Tag Manager Container ID (GTM-XXXXXXX)</label>
+              <input
+                type="text"
+                placeholder="GTM-XXXXXXX"
+                value={settings.analytics?.gtmContainerId || ""}
+                onChange={(e) => updateSettingValue("analytics.gtmContainerId", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Meta / Facebook Pixel ID</label>
+              <input
+                type="text"
+                placeholder="123456789012345"
+                value={settings.analytics?.metaPixelId || ""}
+                onChange={(e) => updateSettingValue("analytics.metaPixelId", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Microsoft Clarity Project ID</label>
+              <input
+                type="text"
+                placeholder="clarity_project_id"
+                value={settings.analytics?.clarityProjectId || ""}
+                onChange={(e) => updateSettingValue("analytics.clarityProjectId", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-zinc-100 dark:border-zinc-900">
+            <button
+              onClick={() => handleSaveGroup("analytics", settings.analytics)}
+              disabled={loading}
+              className="bg-black dark:bg-white text-white dark:text-black font-bold px-5 py-2.5 rounded-lg text-xs uppercase"
+            >
+              SAVE ANALYTICS & SCRIPTS
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 10: EMAIL & SMTP */}
+      {activeTab === "smtp" && (
+        <div className="flex flex-col gap-6 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-900 p-6 rounded-2xl shadow-luxury-sm">
+          <h3 className="font-bold text-sm text-zinc-900 dark:text-white uppercase tracking-wider border-b border-zinc-100 dark:border-zinc-900 pb-3 flex items-center gap-2">
+            <Mail className="w-4 h-4 text-emerald-500" />
+            Email Server (SMTP) & Quotation Dispatch
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">SMTP Host Server</label>
+              <input
+                type="text"
+                placeholder="smtp.orivence.de"
+                value={settings.smtp_config?.smtpHost || ""}
+                onChange={(e) => updateSettingValue("smtp_config.smtpHost", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">SMTP Port (587 / 465)</label>
+              <input
+                type="text"
+                placeholder="587"
+                value={settings.smtp_config?.smtpPort || "587"}
+                onChange={(e) => updateSettingValue("smtp_config.smtpPort", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">SMTP Username</label>
+              <input
+                type="text"
+                placeholder="smtp-user@orivence.de"
+                value={settings.smtp_config?.smtpUser || ""}
+                onChange={(e) => updateSettingValue("smtp_config.smtpUser", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">SMTP Password</label>
+              <input
+                type="password"
+                placeholder="••••••••••••"
+                value={settings.smtp_config?.smtpPass || ""}
+                onChange={(e) => updateSettingValue("smtp_config.smtpPass", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Sender Name</label>
+              <input
+                type="text"
+                placeholder="ORIVENCE SURGICAL"
+                value={settings.smtp_config?.senderName || "ORIVENCE SURGICAL"}
+                onChange={(e) => updateSettingValue("smtp_config.senderName", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Sender Email</label>
+              <input
+                type="email"
+                placeholder="noreply@orivence.de"
+                value={settings.smtp_config?.senderEmail || "noreply@orivence.de"}
+                onChange={(e) => updateSettingValue("smtp_config.senderEmail", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+          </div>
+
+          {/* Test Email Section */}
+          <div className="border border-dashed border-zinc-200 dark:border-zinc-800 p-4 rounded-xl flex flex-col gap-3">
+            <span className="font-bold text-xs uppercase">Send Live Test Email</span>
+            <div className="flex items-center gap-3">
+              <input
+                type="email"
+                placeholder="recipient@example.com"
+                value={testEmailRecipient}
+                onChange={(e) => setTestEmailRecipient(e.target.value)}
+                className="flex-1 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+              <button
+                type="button"
+                onClick={handleTestSmtp}
+                disabled={smtpTesting}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded text-xs uppercase flex items-center gap-1.5"
+              >
+                {smtpTesting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                SEND TEST
+              </button>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-zinc-100 dark:border-zinc-900">
+            <button
+              onClick={() => handleSaveGroup("smtp_config", settings.smtp_config)}
+              disabled={loading}
+              className="bg-black dark:bg-white text-white dark:text-black font-bold px-5 py-2.5 rounded-lg text-xs uppercase"
+            >
+              SAVE SMTP SETTINGS
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 12: SECURITY & ADMIN CREDENTIALS */}
+      {activeTab === "security" && (
+        <div className="flex flex-col gap-6">
+          <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-900 p-6 rounded-2xl shadow-luxury-sm flex flex-col gap-4">
+            <h3 className="font-bold text-sm text-zinc-900 dark:text-white uppercase tracking-wider border-b border-zinc-100 dark:border-zinc-900 pb-3 flex items-center gap-2">
+              <Lock className="w-4 h-4 text-emerald-500" />
+              Update Administrator Master Password & Credentials
+            </h3>
+
+            <form onSubmit={handleCredentialsSubmit} className="flex flex-col gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="flex flex-col gap-1">
+                  <label className="font-bold text-[10px] uppercase text-zinc-500">New Username</label>
+                  <input
+                    type="text"
+                    placeholder="New admin username"
+                    value={newUsername}
+                    onChange={(e) => setNewUsername(e.target.value)}
+                    className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="font-bold text-[10px] uppercase text-zinc-500">New Password</label>
+                  <input
+                    type="password"
+                    placeholder="••••••••••••"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="font-bold text-[10px] uppercase text-zinc-500">Confirm Password</label>
+                  <input
+                    type="password"
+                    placeholder="••••••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  type="submit"
+                  disabled={credLoading}
+                  className="bg-black dark:bg-white text-white dark:text-black font-bold px-5 py-2.5 rounded-lg text-xs uppercase"
+                >
+                  {credLoading ? "UPDATING..." : "UPDATE CREDENTIALS"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Media Picker Modal Component */}
       <MediaPickerModal
         isOpen={pickerOpen}
         onClose={() => setPickerOpen(false)}
-        allowedType={pickerAllowedType}
         onSelect={handlePickerSelect}
+        allowedType={pickerAllowedType}
       />
-
     </div>
   );
 }

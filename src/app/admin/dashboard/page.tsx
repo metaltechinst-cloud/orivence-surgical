@@ -1,18 +1,21 @@
 // src/app/admin/dashboard/page.tsx
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { 
   ShieldCheck, LayoutDashboard, Package, Folders, 
   Upload, ClipboardList, Settings, LogOut, CheckCircle2,
   AlertCircle, Search, Plus, Trash2, Edit2, ArrowUpDown, ExternalLink,
-  X, FileText, Image as ImageIcon, Copy, Eye, Smartphone, Tablet, Monitor, Video, Camera
+  X, FileText, Image as ImageIcon, Copy, Eye, Smartphone, Tablet, Monitor, Video, Camera,
+  Users, Layers
 } from "lucide-react";
 
 // Sub-tabs components
 import MediaTab from "@/components/admin/MediaTab";
 import SettingsTab from "@/components/admin/SettingsTab";
+import HomepageBuilderTab from "@/components/admin/HomepageBuilderTab";
+import UsersTab from "@/components/admin/UsersTab";
 import MediaPickerModal from "@/components/admin/MediaPickerModal";
 
 interface Category {
@@ -74,11 +77,25 @@ interface Inquiry {
   createdAt: string;
 }
 
-export default function AdminDashboard() {
+function AdminDashboardContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabFromUrl = searchParams.get("tab");
+
   const [currentUser, setCurrentUser] = useState<{ username: string; role: string } | null>(null);
-  const [activeTab, setActiveTab] = useState<string>("dashboard");
+  const [activeTab, setActiveTab] = useState<string>(tabFromUrl || "dashboard");
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (tabFromUrl && tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [tabFromUrl]);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    router.push(`/admin/dashboard?tab=${tab}`, { scroll: false });
+  };
 
   // Datasets
   const [categories, setCategories] = useState<Category[]>([]);
@@ -545,7 +562,7 @@ export default function AdminDashboard() {
         {/* Tab Controls Bar */}
         <div className="flex flex-wrap items-center gap-2 mb-8 border-b border-[#1e293b] pb-4">
           <button
-            onClick={() => setActiveTab("dashboard")}
+            onClick={() => handleTabChange("dashboard")}
             className={`flex items-center gap-1.5 px-4 py-2 text-xs font-mono tracking-wider font-semibold rounded-full border transition-all ${
               activeTab === "dashboard"
                 ? "bg-gradient-to-r from-[#0a5c67] to-[#14919b] text-white border-[#14919b]/50 shadow-luxury-md"
@@ -557,7 +574,7 @@ export default function AdminDashboard() {
           </button>
           
           <button
-            onClick={() => setActiveTab("products")}
+            onClick={() => handleTabChange("products")}
             className={`flex items-center gap-1.5 px-4 py-2 text-xs font-mono tracking-wider font-semibold rounded-full border transition-all ${
               activeTab === "products"
                 ? "bg-gradient-to-r from-[#0a5c67] to-[#14919b] text-white border-[#14919b]/50 shadow-luxury-md"
@@ -569,7 +586,7 @@ export default function AdminDashboard() {
           </button>
 
           <button
-            onClick={() => setActiveTab("categories")}
+            onClick={() => handleTabChange("categories")}
             className={`flex items-center gap-1.5 px-4 py-2 text-xs font-mono tracking-wider font-semibold rounded-full border transition-all ${
               activeTab === "categories"
                 ? "bg-gradient-to-r from-[#0a5c67] to-[#14919b] text-white border-[#14919b]/50 shadow-luxury-md"
@@ -581,11 +598,11 @@ export default function AdminDashboard() {
           </button>
 
           <button
-            onClick={() => setActiveTab("media")}
+            onClick={() => handleTabChange("media")}
             className={`flex items-center gap-1.5 px-4 py-2 text-xs font-mono tracking-wider font-semibold rounded-full border transition-all ${
               activeTab === "media"
-                ? "bg-black text-white dark:bg-white dark:text-black border-black"
-                : "text-zinc-400 border-transparent hover:text-black dark:hover:text-white"
+                ? "bg-gradient-to-r from-[#0a5c67] to-[#14919b] text-white border-[#14919b]/50 shadow-luxury-md"
+                : "text-slate-400 border-transparent hover:text-white hover:border-[#1e293b]"
             }`}
           >
             <Upload className="w-4 h-4" />
@@ -593,11 +610,23 @@ export default function AdminDashboard() {
           </button>
 
           <button
-            onClick={() => setActiveTab("inquiries")}
+            onClick={() => handleTabChange("homepage_builder")}
+            className={`flex items-center gap-1.5 px-4 py-2 text-xs font-mono tracking-wider font-semibold rounded-full border transition-all ${
+              activeTab === "homepage_builder" || activeTab === "homepage"
+                ? "bg-gradient-to-r from-[#0a5c67] to-[#14919b] text-white border-[#14919b]/50 shadow-luxury-md"
+                : "text-slate-400 border-transparent hover:text-white hover:border-[#1e293b]"
+            }`}
+          >
+            <Layers className="w-4 h-4 text-emerald-400" />
+            HOMEPAGE BUILDER
+          </button>
+
+          <button
+            onClick={() => handleTabChange("inquiries")}
             className={`flex items-center gap-1.5 px-4 py-2 text-xs font-mono tracking-wider font-semibold rounded-full border transition-all ${
               activeTab === "inquiries"
-                ? "bg-black text-white dark:bg-white dark:text-black border-black"
-                : "text-zinc-400 border-transparent hover:text-black dark:hover:text-white"
+                ? "bg-gradient-to-r from-[#0a5c67] to-[#14919b] text-white border-[#14919b]/50 shadow-luxury-md"
+                : "text-slate-400 border-transparent hover:text-white hover:border-[#1e293b]"
             }`}
           >
             <ClipboardList className="w-4 h-4" />
@@ -605,11 +634,23 @@ export default function AdminDashboard() {
           </button>
 
           <button
-            onClick={() => setActiveTab("settings")}
+            onClick={() => handleTabChange("users")}
+            className={`flex items-center gap-1.5 px-4 py-2 text-xs font-mono tracking-wider font-semibold rounded-full border transition-all ${
+              activeTab === "users"
+                ? "bg-gradient-to-r from-[#0a5c67] to-[#14919b] text-white border-[#14919b]/50 shadow-luxury-md"
+                : "text-slate-400 border-transparent hover:text-white hover:border-[#1e293b]"
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            USERS & ADMINS
+          </button>
+
+          <button
+            onClick={() => handleTabChange("settings")}
             className={`flex items-center gap-1.5 px-4 py-2 text-xs font-mono tracking-wider font-semibold rounded-full border transition-all ${
               activeTab === "settings"
-                ? "bg-black text-white dark:bg-white dark:text-black border-black"
-                : "text-zinc-400 border-transparent hover:text-black dark:hover:text-white"
+                ? "bg-gradient-to-r from-[#0a5c67] to-[#14919b] text-white border-[#14919b]/50 shadow-luxury-md"
+                : "text-slate-400 border-transparent hover:text-white hover:border-[#1e293b]"
             }`}
           >
             <Settings className="w-4 h-4" />
@@ -1596,6 +1637,21 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {/* TAB: HOMEPAGE BUILDER */}
+      {(activeTab === "homepage_builder" || activeTab === "homepage") && (
+        <HomepageBuilderTab />
+      )}
+
+      {/* TAB: USERS MANAGEMENT */}
+      {activeTab === "users" && (
+        <UsersTab />
+      )}
+
+      {/* TAB: SYSTEM SETTINGS */}
+      {activeTab === "settings" && (
+        <SettingsTab initialSettings={settings} onSave={handleSaveSettingsObj} />
+      )}
+
       {/* Website Preview Modal */}
       {showPreviewModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-4">
@@ -1680,5 +1736,18 @@ export default function AdminDashboard() {
       />
 
     </div>
+  );
+}
+
+export default function AdminDashboard() {
+  return (
+    <Suspense fallback={
+      <div className="w-full bg-[#0b131e] min-h-screen flex items-center justify-center text-white font-mono text-xs">
+        <span className="w-8 h-8 border-3 border-white border-t-transparent rounded-full animate-spin mr-3" />
+        Loading ORIVENCE Master Control Center...
+      </div>
+    }>
+      <AdminDashboardContent />
+    </Suspense>
   );
 }

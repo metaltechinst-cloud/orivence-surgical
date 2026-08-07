@@ -147,8 +147,18 @@ export default function HomeClientPage({ categories, featuredProducts }: HomeCli
     setComparisonProducts((prev) => prev.filter((p) => p.id !== id));
   };
 
-  const sectionOrder = settings.section_order || ["hero", "about", "categories", "products", "global", "contact"];
-  const sectionVisibility = settings.section_visibility || {};
+  let sectionOrder: string[] = ["hero", "about", "categories", "products", "facility", "album", "videos", "global", "contact"];
+  let sectionVisibility: Record<string, boolean> = {};
+
+  if (settings.homepage_builder?.publishedSections && Array.isArray(settings.homepage_builder.publishedSections)) {
+    sectionOrder = settings.homepage_builder.publishedSections.map((s: any) => s.id);
+    settings.homepage_builder.publishedSections.forEach((s: any) => {
+      sectionVisibility[s.id] = s.visible !== false;
+    });
+  } else if (settings.section_order && Array.isArray(settings.section_order)) {
+    sectionOrder = settings.section_order;
+    sectionVisibility = settings.section_visibility || {};
+  }
 
   const renderSection = (sectionKey: string) => {
     if (sectionVisibility[sectionKey] === false) return null;

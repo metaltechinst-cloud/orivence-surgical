@@ -7,11 +7,43 @@ import { getAuthToken, verifyAccessToken } from "@/lib/auth";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+// Mapping helper for key -> group
+function getGroupForKey(key: string): string {
+  if (["business_info", "contact_info", "identity"].includes(key)) return "business";
+  if (["social_links"].includes(key)) return "social";
+  if (["branding"].includes(key)) return "branding";
+  if (["header_config"].includes(key)) return "header";
+  if (["footer_config"].includes(key)) return "footer";
+  if (["company_info"].includes(key)) return "company";
+  if (["contact_page"].includes(key)) return "contact_page";
+  if (["seo_meta", "seo_settings"].includes(key)) return "seo";
+  if (["analytics"].includes(key)) return "analytics";
+  if (["smtp_config"].includes(key)) return "smtp";
+  if (["security"].includes(key)) return "security";
+  return "general";
+}
+
 // GET /api/settings - Fetch all website settings as a key-value map
 export async function GET(req: NextRequest) {
   try {
-    const settingsList = await db.websiteSetting.findMany();
-    
+    const { searchParams } = new URL(req.url);
+    const group = searchParams.get("group");
+    const raw = searchParams.get("raw") === "true";
+
+    const whereClause: any = {};
+    if (group) {
+      whereClause.group = group;
+    }
+
+    const settingsList = await db.websiteSetting.findMany({
+      where: whereClause,
+      orderBy: { key: "asc" }
+    });
+
+    if (raw) {
+      return NextResponse.json({ success: true, data: settingsList });
+    }
+
     // Map list of entries [{key, value}] to a key-value object { [key]: value }
     const settingsMap = settingsList.reduce((acc, curr) => {
       try {
@@ -40,8 +72,11 @@ async function handleUpsertSettings(req: NextRequest) {
 
     const payload = await req.json();
     
-    // Support both single pair { key, value } and bulk map { [key]: value }
     let settingsData: Record<string, any> = {};
+    let customGroup = payload.group;
+    let customType = payload.type || "json";
+    let customDesc = payload.description;
+
     if (payload.key !== undefined && payload.value !== undefined) {
       settingsData[payload.key] = payload.value;
     } else {
@@ -51,12 +86,29 @@ async function handleUpsertSettings(req: NextRequest) {
     console.log(`[DB WRITE START] Upsert website settings keys: ${Object.keys(settingsData).join(", ")}`);
 
     for (const [key, value] of Object.entries(settingsData)) {
-      const stringValue = typeof value === "object" ? JSON.stringify(value) : String(value);
+      if (key === "group" || key === "type" || key === "description" || key === "isPublic") continue;
       
+      const stringValue = typeof value === "object" ? JSON.stringify(value) : String(value);
+      const groupName = customGroup || getGroupForKey(key);
+      const isJson = typeof value === "object";
+      const settingType = customType || (isJson ? "json" : "string");
+
       await db.websiteSetting.upsert({
         where: { key },
-        update: { value: stringValue },
-        create: { key, value: stringValue },
+        update: { 
+          value: stringValue,
+          group: groupName,
+          type: settingType,
+          description: customDesc || undefined,
+          updatedAt: new Date()
+        },
+        create: { 
+          key, 
+          value: stringValue,
+          group: groupName,
+          type: settingType,
+          description: customDesc || `${key} configuration setting`
+        },
       });
     }
 

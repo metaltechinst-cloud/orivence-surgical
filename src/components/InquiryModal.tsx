@@ -6,13 +6,14 @@ import { X, Send, CheckCircle, Info } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface InquiryModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  productName: string;
+  isOpen?: boolean;
+  onClose?: () => void;
+  productName?: string;
   sku?: string;
+  inline?: boolean;
 }
 
-export default function InquiryModal({ isOpen, onClose, productName, sku = "" }: InquiryModalProps) {
+export default function InquiryModal({ isOpen = true, onClose = () => {}, productName = "", sku = "", inline = false }: InquiryModalProps) {
   const [formData, setFormData] = useState({
     name: "",
     company: "",
