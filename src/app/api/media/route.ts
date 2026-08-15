@@ -21,17 +21,20 @@ function cleanFolder(folder: string): string {
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const folder = cleanFolder(searchParams.get("folder") || "/");
+    const folderParam = searchParams.get("folder");
     const search = searchParams.get("search") || "";
     const type = searchParams.get("type") || "";
 
     const whereClause: any = {};
 
-    if (folder) {
-      whereClause.folder = folder;
+    if (folderParam && folderParam !== "all") {
+      whereClause.folder = cleanFolder(folderParam);
+    } else if (!folderParam && !search) {
+      whereClause.folder = "/";
     }
+
     if (search) {
-      whereClause.filename = { contains: search };
+      whereClause.filename = { contains: search, mode: "insensitive" };
     }
     if (type) {
       whereClause.type = { startsWith: type };

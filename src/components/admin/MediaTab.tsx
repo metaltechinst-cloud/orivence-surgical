@@ -153,15 +153,15 @@ export default function MediaTab() {
     const token = localStorage.getItem("admin_token");
 
     if (!force) {
-      // Check for dependencies first
+      // Check for dependencies first via /api/media/usage
       try {
-        const checkRes = await fetch(`/api/media?id=${asset.id}&checkOnly=true`, {
+        const checkRes = await fetch(`/api/media/usage?id=${asset.id}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (checkRes.ok) {
           const data = await checkRes.json();
-          if (data.inUse && data.usages?.length > 0) {
-            setDeleteWarning({ asset, usages: data.usages });
+          if (data.isUsed && data.usedIn?.length > 0) {
+            setDeleteWarning({ asset, usages: data.usedIn });
             return;
           }
         }

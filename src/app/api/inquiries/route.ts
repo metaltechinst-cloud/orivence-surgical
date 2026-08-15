@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAuthToken, verifyAccessToken } from "@/lib/auth";
+import { sendInquiryNotifications } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -156,6 +157,26 @@ export async function POST(req: NextRequest) {
     });
 
     console.log(`[DB WRITE SUCCESS] Inquiry created ID: ${inquiry.id}`);
+
+    // Asynchronously dispatch Owner Notification and Customer Confirmation (Non-blocking failure handling)
+    sendInquiryNotifications({
+      referenceNo,
+      name,
+      companyName,
+      country,
+      email,
+      phone,
+      whatsapp,
+      message,
+      items: items.map((i: any) => ({
+        productName: i.productName || firstProductName,
+        sku: i.sku || firstProductSku,
+        quantity: i.quantity || 1
+      }))
+    }).catch(err => {
+      console.error("[EMAIL DISPATCH WARNING] Non-blocking email dispatch error:", err);
+    });
+
     return NextResponse.json({ success: true, data: inquiry, referenceNo }, { status: 201 });
   } catch (error: any) {
     console.error(`[DB WRITE FAIL] Submit inquiry API error: ${error?.message || error}`);

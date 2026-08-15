@@ -810,6 +810,51 @@ export default function SettingsTab({ initialSettings, onSave }: SettingsTabProp
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Footer Logo Slot */}
+            <div className="md:col-span-2 border border-dashed border-zinc-200 dark:border-zinc-800 p-4 rounded-xl flex flex-col gap-2 bg-zinc-50/50 dark:bg-zinc-900/50">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Footer Logo (Custom Brand Logo)</label>
+              <div className="flex flex-col sm:flex-row items-center gap-4">
+                <div className="w-40 h-16 border border-zinc-200 dark:border-zinc-800 rounded flex items-center justify-center bg-zinc-900 overflow-hidden relative shrink-0">
+                  {settings.footer_config?.logoUrl || settings.branding?.footerLogoUrl || settings.branding?.logoUrl ? (
+                    <img
+                      src={settings.footer_config?.logoUrl || settings.branding?.footerLogoUrl || settings.branding?.logoUrl}
+                      alt="Footer Logo Preview"
+                      className="max-h-full max-w-full object-contain p-2"
+                    />
+                  ) : (
+                    <span className="text-[9px] text-zinc-400 font-mono">DEFAULT LOGO</span>
+                  )}
+                </div>
+                <div className="flex-1 w-full flex flex-col gap-2">
+                  <input
+                    type="url"
+                    placeholder="https://... (or leave blank to use Main Brand Logo)"
+                    value={settings.footer_config?.logoUrl || ""}
+                    onChange={(e) => updateSettingValue("footer_config.logoUrl", e.target.value)}
+                    className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+                  />
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openPicker("footer_config.logoUrl", "image")}
+                      className="px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded font-bold text-[10px] uppercase transition-colors"
+                    >
+                      Media Picker
+                    </button>
+                    <label className="px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded font-bold text-[10px] uppercase cursor-pointer text-center transition-colors">
+                      Direct Upload
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => e.target.files?.[0] && triggerDirectUpload(e.target.files[0], "footer_config.logoUrl")}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="md:col-span-2 flex flex-col gap-1">
               <label className="font-bold text-[10px] uppercase text-zinc-500">Footer Corporate Summary Description</label>
               <textarea
@@ -854,7 +899,7 @@ export default function SettingsTab({ initialSettings, onSave }: SettingsTabProp
             <button
               onClick={() => handleSaveGroup("footer_config", settings.footer_config)}
               disabled={loading}
-              className="bg-black dark:bg-white text-white dark:text-black font-bold px-5 py-2.5 rounded-lg text-xs uppercase"
+              className="bg-black dark:bg-white text-white dark:text-black font-bold px-5 py-2.5 rounded-lg text-xs uppercase hover:opacity-90 transition-opacity"
             >
               SAVE FOOTER CONFIGURATION
             </button>
@@ -995,6 +1040,28 @@ export default function SettingsTab({ initialSettings, onSave }: SettingsTabProp
                 placeholder="clarity_project_id"
                 value={settings.analytics?.clarityProjectId || ""}
                 onChange={(e) => updateSettingValue("analytics.clarityProjectId", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Google Search Console Verification Token</label>
+              <input
+                type="text"
+                placeholder="google_site_verification_token"
+                value={settings.analytics?.googleConsoleVerification || ""}
+                onChange={(e) => updateSettingValue("analytics.googleConsoleVerification", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500">Bing Webmaster Verification Code</label>
+              <input
+                type="text"
+                placeholder="msvalidate_01_code"
+                value={settings.analytics?.bingWebmasterVerification || ""}
+                onChange={(e) => updateSettingValue("analytics.bingWebmasterVerification", e.target.value)}
                 className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
               />
             </div>

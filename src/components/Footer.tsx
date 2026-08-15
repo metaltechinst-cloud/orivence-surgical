@@ -109,13 +109,18 @@ export default function Footer() {
     <footer className="bg-[#253237] text-[#C2DFE3] pt-16 pb-10 border-t border-[#5C6B73]/30 relative overflow-hidden font-sans">
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[200px] bg-gradient-radial from-[#9DB4C0]/10 to-transparent opacity-30 pointer-events-none" />
 
-      <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 relative z-10 text-left">
+      <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 relative z-10 text-left">
         
         {/* Brand Column */}
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-5 md:col-span-2 lg:col-span-1">
           <Link href="/" className="flex items-center gap-3">
             {logoSource ? (
-              <img src={logoSource} alt="ORIVENCE logo" className="h-8 max-w-[150px] object-contain" />
+              <img 
+                src={logoSource} 
+                alt="ORIVENCE logo" 
+                className="h-8 max-w-[150px] object-contain" 
+                onError={() => setBranding(prev => ({ ...prev, logoUrl: undefined, footerLogoUrl: undefined }))}
+              />
             ) : (
               <>
                 <svg
@@ -158,6 +163,47 @@ export default function Footer() {
             <span className="text-white border border-[#5C6B73] px-2 py-0.5 rounded text-[10px] font-bold font-mono">CE MARK</span>
           </div>
         </div>
+
+        {/* Quick Links Column */}
+        {footerConfig.showQuickLinks !== false && (
+          <div className="flex flex-col gap-4">
+            <h4 className="text-xs font-mono tracking-widest text-white uppercase border-b border-[#5C6B73]/40 pb-2">
+              Quick Navigation
+            </h4>
+            <ul className="flex flex-col gap-2.5 text-xs font-mono">
+              <li>
+                <Link href="/" className="hover:text-white transition-colors uppercase">
+                  Home
+                </Link>
+              </li>
+              <li>
+                <Link href="/products" className="hover:text-white transition-colors uppercase">
+                  Surgical Catalog
+                </Link>
+              </li>
+              <li>
+                <Link href="/categories" className="hover:text-white transition-colors uppercase">
+                  Product Categories
+                </Link>
+              </li>
+              <li>
+                <Link href="/about" className="hover:text-white transition-colors uppercase">
+                  Company Profile
+                </Link>
+              </li>
+              <li>
+                <Link href="/contact" className="hover:text-white transition-colors uppercase">
+                  Global Contacts
+                </Link>
+              </li>
+              <li>
+                <Link href="/rfq-basket" className="hover:text-white transition-colors uppercase">
+                  RFQ Basket
+                </Link>
+              </li>
+            </ul>
+          </div>
+        )}
 
         {/* Category Links Column */}
         {footerConfig.showCategoryLinks !== false && (

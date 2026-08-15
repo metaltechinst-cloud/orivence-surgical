@@ -173,9 +173,10 @@ export default function HomeClientPage({ categories, featuredProducts }: HomeCli
 
             <div className="absolute inset-0 drafting-grid opacity-30 pointer-events-none z-[1]" />
             {/* Giant Orivence Surgical Logo Watermark in Background */}
-            <div className="absolute top-1/2 left-1/2 w-[550px] md:w-[750px] h-[550px] md:h-[750px] opacity-[0.06] pointer-events-none z-[1] select-none animate-watermark-spin">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] md:w-[750px] h-[550px] md:h-[750px] opacity-[0.06] pointer-events-none z-[1] select-none animate-watermark-spin">
               <svg
                 viewBox="0 0 100 100"
+                fill="none"
                 className="w-full h-full stroke-[#253237] fill-none"
                 strokeWidth="0.6"
               >

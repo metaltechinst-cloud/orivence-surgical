@@ -92,12 +92,15 @@ export function getAuthToken(req: NextRequest): string | null {
   // Check authorization header first
   const authHeader = req.headers.get("Authorization");
   if (authHeader && authHeader.startsWith("Bearer ")) {
-    return authHeader.split(" ")[1];
+    const bearer = authHeader.substring(7).trim();
+    if (bearer && bearer !== "null" && bearer !== "undefined" && bearer !== "authenticated") {
+      return bearer;
+    }
   }
   
   // Check cookie next
   const cookie = req.cookies.get("admin_token");
-  if (cookie) {
+  if (cookie && cookie.value && cookie.value !== "null" && cookie.value !== "undefined") {
     return cookie.value;
   }
   

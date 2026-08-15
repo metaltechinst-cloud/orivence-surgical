@@ -34,6 +34,22 @@ export default function HomepageBuilderTab({ onSaveSuccess }: HomepageBuilderTab
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+
+  const insertTemplate = (template: { name: string; description: string; previewIcon: string }) => {
+    const id = `custom_${template.name.toLowerCase().replace(/[^a-z0-9]+/g, "_")}_${Date.now()}`;
+    const newSec: HomepageSectionItem = {
+      id,
+      name: template.name,
+      description: template.description,
+      visible: true,
+      order: sections.length,
+      previewIcon: template.previewIcon
+    };
+    setSections([...sections, newSec]);
+    setShowTemplateModal(false);
+    setFeedback({ type: "success", msg: `Template "${template.name}" inserted into homepage draft!` });
+  };
 
   const fetchConfig = async () => {
     setLoading(true);
@@ -171,6 +187,14 @@ export default function HomepageBuilderTab({ onSaveSuccess }: HomepageBuilderTab
 
           {/* Action Buttons */}
           <button
+            onClick={() => setShowTemplateModal(true)}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-blue-500/40 bg-blue-950/20 text-blue-400 hover:border-blue-500 font-bold text-xs uppercase transition-colors"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            + INSERT TEMPLATE
+          </button>
+
+          <button
             onClick={() => handleSave("save_draft")}
             disabled={actionLoading}
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 font-bold text-xs uppercase text-zinc-800 dark:text-zinc-200 transition-colors disabled:opacity-50"
@@ -294,6 +318,118 @@ export default function HomepageBuilderTab({ onSaveSuccess }: HomepageBuilderTab
           );
         })}
       </div>
+
+      {/* REUSABLE CONTENT TEMPLATES MODAL */}
+      {showTemplateModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[#0b131e] border border-[#1e293b] rounded-2xl w-full max-w-2xl p-6 shadow-2xl flex flex-col gap-6 text-slate-100 font-mono text-xs">
+            
+            <div className="flex items-center justify-between border-b border-[#1e293b] pb-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-blue-400" />
+                <h3 className="font-bold text-sm uppercase text-white">Insert Reusable Content Template</h3>
+              </div>
+              <button onClick={() => setShowTemplateModal(false)} className="text-slate-400 hover:text-white">
+                ✕
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              
+              <div 
+                onClick={() => insertTemplate({
+                  name: "PRODUCT SECTION: Image + Text + CTA",
+                  description: "Spotlight section featuring a hero product image, metallurgical details, and a direct B2B Inquiry button.",
+                  previewIcon: "Package"
+                })}
+                className="p-4 bg-slate-900/60 border border-slate-800 hover:border-blue-500 rounded-xl cursor-pointer transition-all flex flex-col gap-2 group"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-blue-400 uppercase text-[11px]">PRODUCT SECTION</span>
+                  <Package className="w-4 h-4 text-blue-400 group-hover:scale-110 transition-transform" />
+                </div>
+                <span className="text-slate-200 font-bold">Image + Text + CTA</span>
+                <p className="text-[10px] text-slate-400 font-sans">Spotlight a key surgical instrument with high-resolution image and CTA.</p>
+              </div>
+
+              <div 
+                onClick={() => insertTemplate({
+                  name: "IMAGE ALBUM: Title + Description + Gallery",
+                  description: "High-resolution photo album displaying micro-finish macro photography and cleanroom packaging.",
+                  previewIcon: "Image"
+                })}
+                className="p-4 bg-slate-900/60 border border-slate-800 hover:border-purple-500 rounded-xl cursor-pointer transition-all flex flex-col gap-2 group"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-purple-400 uppercase text-[11px]">IMAGE ALBUM</span>
+                  <ImageIcon className="w-4 h-4 text-purple-400 group-hover:scale-110 transition-transform" />
+                </div>
+                <span className="text-slate-200 font-bold">Title + Description + Gallery</span>
+                <p className="text-[10px] text-slate-400 font-sans">Visual gallery displaying isolation tip alignment and satin finishes.</p>
+              </div>
+
+              <div 
+                onClick={() => insertTemplate({
+                  name: "VIDEO SECTION: Video + Title + Description",
+                  description: "Embedded manufacturing video demonstrating Tuttlingen grinding, passivation, and laser marking.",
+                  previewIcon: "Video"
+                })}
+                className="p-4 bg-slate-900/60 border border-slate-800 hover:border-rose-500 rounded-xl cursor-pointer transition-all flex flex-col gap-2 group"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-rose-400 uppercase text-[11px]">VIDEO SECTION</span>
+                  <Video className="w-4 h-4 text-rose-400 group-hover:scale-110 transition-transform" />
+                </div>
+                <span className="text-slate-200 font-bold">Video + Title + Description</span>
+                <p className="text-[10px] text-slate-400 font-sans">Embedded video stream highlighting precision manufacturing steps.</p>
+              </div>
+
+              <div 
+                onClick={() => insertTemplate({
+                  name: "FEATURE SECTION: Icon + Heading + Description",
+                  description: "Grid of technical features highlighting AISI 316L stainless steel, 1.5µm tolerances, and ISO 13485.",
+                  previewIcon: "Shield"
+                })}
+                className="p-4 bg-slate-900/60 border border-slate-800 hover:border-emerald-500 rounded-xl cursor-pointer transition-all flex flex-col gap-2 group"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-emerald-400 uppercase text-[11px]">FEATURE SECTION</span>
+                  <Shield className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
+                </div>
+                <span className="text-slate-200 font-bold">Icon + Heading + Description</span>
+                <p className="text-[10px] text-slate-400 font-sans">Bullet points of metallurgical standards and quality assurance.</p>
+              </div>
+
+              <div 
+                onClick={() => insertTemplate({
+                  name: "CTA SECTION: Heading + Description + Button",
+                  description: "Custom B2B quotation banner prompting healthcare distributors to request custom OEM quotes.",
+                  previewIcon: "Mail"
+                })}
+                className="p-4 bg-slate-900/60 border border-slate-800 hover:border-amber-500 rounded-xl cursor-pointer transition-all flex flex-col gap-2 group"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-amber-400 uppercase text-[11px]">CTA SECTION</span>
+                  <Mail className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+                </div>
+                <span className="text-slate-200 font-bold">Heading + Description + Button</span>
+                <p className="text-[10px] text-slate-400 font-sans">Prominent call-to-action bar for direct bulk RFQ submission.</p>
+              </div>
+
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-[#1e293b]">
+              <button 
+                onClick={() => setShowTemplateModal(false)}
+                className="px-4 py-2 border border-slate-700 rounded font-bold hover:bg-slate-800"
+              >
+                CANCEL
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }

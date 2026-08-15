@@ -177,8 +177,13 @@ export async function middleware(req: NextRequest) {
 
   if ((isAdminPage && !isLoginPage) || isAdminApi) {
     const authHeader = req.headers.get("authorization");
-    const bearerToken = authHeader && authHeader.startsWith("Bearer ") ? authHeader.substring(7) : null;
-    const accessToken = req.cookies.get("admin_token")?.value || bearerToken;
+    const rawBearer = authHeader && authHeader.startsWith("Bearer ") ? authHeader.substring(7).trim() : null;
+    const bearerToken = (rawBearer && rawBearer !== "null" && rawBearer !== "undefined" && rawBearer !== "authenticated") ? rawBearer : null;
+    
+    const cookieToken = req.cookies.get("admin_token")?.value;
+    const cleanCookieToken = (cookieToken && cookieToken !== "null" && cookieToken !== "undefined") ? cookieToken : null;
+    
+    const accessToken = cleanCookieToken || bearerToken;
     const refreshToken = req.cookies.get("refresh_token")?.value;
 
     let userPayload: TokenPayload | null = null;

@@ -1,6 +1,7 @@
 // src/app/layout.tsx
 
 import type { Metadata } from "next";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -8,6 +9,18 @@ import SmoothScroll from "@/components/SmoothScroll";
 import { RFQProvider } from "@/context/RFQContext";
 import { db } from "@/lib/db";
 import Script from "next/script";
+
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-mono",
+});
 
 export async function generateMetadata(): Promise<Metadata> {
   let title = "ORIVENCE SURGICAL | German Surgical Precision Implements";
@@ -108,6 +121,8 @@ export default async function RootLayout({
   let googleTagManagerId = "";
   let metaPixelId = "";
   let microsoftClarityId = "";
+  let googleConsoleVerification = "";
+  let bingWebmasterVerification = "";
   let businessInfo = {
     companyName: "ORIVENCE SURGICAL GMBH",
     brandName: "ORIVENCE",
@@ -125,6 +140,8 @@ export default async function RootLayout({
       googleTagManagerId = analytics.gtmContainerId || "";
       metaPixelId = analytics.metaPixelId || "";
       microsoftClarityId = analytics.clarityProjectId || "";
+      googleConsoleVerification = analytics.googleConsoleVerification || analytics.googleSiteVerification || "";
+      bingWebmasterVerification = analytics.bingWebmasterVerification || analytics.bingSiteVerification || "";
     }
 
     const dbBusiness = await db.websiteSetting.findUnique({ where: { key: "business_info" } });
@@ -159,8 +176,16 @@ export default async function RootLayout({
   };
 
   return (
-    <html lang="en" className="scroll-smooth">
+    <html lang="en" className={`scroll-smooth ${inter.variable} ${jetbrainsMono.variable}`}>
       <head>
+        {/* Search Console & Bing Webmaster Verification */}
+        {googleConsoleVerification && (
+          <meta name="google-site-verification" content={googleConsoleVerification} />
+        )}
+        {bingWebmasterVerification && (
+          <meta name="msvalidate.01" content={bingWebmasterVerification} />
+        )}
+
         {/* Schema.org Structured Data */}
         <script
           type="application/ld+json"

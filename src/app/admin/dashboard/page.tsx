@@ -8,7 +8,7 @@ import {
   Upload, ClipboardList, Settings, LogOut, CheckCircle2,
   AlertCircle, Search, Plus, Trash2, Edit2, ArrowUpDown, ExternalLink,
   X, FileText, Image as ImageIcon, Copy, Eye, Smartphone, Tablet, Monitor, Video, Camera,
-  Users, Layers
+  Users, Layers, BarChart3, FileSpreadsheet, Activity, Command, History
 } from "lucide-react";
 
 // Sub-tabs components
@@ -17,6 +17,11 @@ import SettingsTab from "@/components/admin/SettingsTab";
 import HomepageBuilderTab from "@/components/admin/HomepageBuilderTab";
 import UsersTab from "@/components/admin/UsersTab";
 import MediaPickerModal from "@/components/admin/MediaPickerModal";
+import AnalyticsTab from "@/components/admin/AnalyticsTab";
+import AuditTab from "@/components/admin/AuditTab";
+import SystemHealthTab from "@/components/admin/SystemHealthTab";
+import CommandPaletteModal from "@/components/admin/CommandPaletteModal";
+import VersionHistoryModal from "@/components/admin/VersionHistoryModal";
 
 interface Category {
   id: string;
@@ -152,19 +157,50 @@ function AdminDashboardContent() {
   const [pickerTarget, setPickerTarget] = useState<"product-main" | "product-gallery" | "category-banner" | "category-thumbnail">("product-main");
 
   const [showPreviewModal, setShowPreviewModal] = useState(false);
-  const [previewFrame, setPreviewFrame] = useState<"desktop" | "tablet" | "mobile">("desktop");
+  const [previewFrame, setPreviewFrame] = useState<"desktop" | "laptop" | "tablet" | "mobile-414" | "mobile-390" | "mobile-375" | "mobile-320">("desktop");
 
   const [selectedInquiry, setSelectedInquiry] = useState<Inquiry | null>(null);
   const [inquiryNotes, setInquiryNotes] = useState("");
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [versionModalOpen, setVersionModalOpen] = useState(false);
+
+  const handleCommandPaletteAction = (type: string, data: any) => {
+    if (type === "OPEN_PALETTE") {
+      setCommandPaletteOpen(true);
+      return;
+    }
+    if (type === "PRODUCT") {
+      setActiveTab("products");
+      if (data) handleEditProductClick(data);
+    } else if (type === "CATEGORY") {
+      setActiveTab("categories");
+      if (data) handleEditCategoryClick(data);
+    } else if (type === "INQUIRY") {
+      setActiveTab("inquiries");
+      if (data) setSelectedInquiry(data);
+    } else if (type === "MEDIA") {
+      setActiveTab("media");
+    } else if (type === "SETTINGS") {
+      setActiveTab("settings");
+    } else if (type === "AUDIT") {
+      setActiveTab("audit");
+    }
+  };
+
+  const getAuthHeaders = (): Record<string, string> => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
+    if (token && token !== "null" && token !== "undefined" && token !== "authenticated") {
+      return { Authorization: `Bearer ${token}` };
+    }
+    return {};
+  };
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("admin_token");
-      
       // Fetch profile
       const profileRes = await fetch("/api/auth/me", {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: getAuthHeaders()
       });
       if (!profileRes.ok) {
         router.push("/admin/login");
@@ -175,7 +211,7 @@ function AdminDashboardContent() {
 
       // Fetch products (include draft/admin products)
       const productsRes = await fetch("/api/products?admin=true", {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: getAuthHeaders()
       });
       if (productsRes.ok) {
         const prodData = await productsRes.json();
@@ -184,7 +220,7 @@ function AdminDashboardContent() {
 
       // Fetch categories
       const categoriesRes = await fetch("/api/categories?admin=true", {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: getAuthHeaders()
       });
       if (categoriesRes.ok) {
         const catData = await categoriesRes.json();
@@ -193,7 +229,7 @@ function AdminDashboardContent() {
 
       // Fetch inquiries
       const inquiriesRes = await fetch("/api/inquiries", {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: getAuthHeaders()
       });
       if (inquiriesRes.ok) {
         const inqData = await inquiriesRes.json();
@@ -220,8 +256,14 @@ function AdminDashboardContent() {
     fetchData();
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch (e) {
+      console.error("Logout request error:", e);
+    }
     localStorage.removeItem("admin_token");
+    localStorage.removeItem("admin_user");
     router.push("/admin/login");
   };
 
@@ -550,13 +592,32 @@ function AdminDashboardContent() {
             </p>
           </div>
 
-          <button 
-            onClick={handleLogout}
-            className="flex items-center gap-1.5 px-4 py-2 border border-red-500/40 rounded-lg text-xs font-mono font-semibold bg-red-950/20 text-red-400 hover:border-red-500 transition-all"
-          >
-            <LogOut className="w-4 h-4" />
-            EXIT CONTROL
-          </button>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setCommandPaletteOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 border border-[#14919b]/50 rounded-lg text-xs font-mono font-semibold bg-[#0a5c67]/30 text-[#14919b] hover:bg-[#0a5c67]/50 hover:border-[#14919b] transition-all shadow-luxury-sm"
+            >
+              <Search className="w-4 h-4" />
+              <span>SEARCH</span>
+              <kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-[10px] text-slate-300 border border-slate-700">Ctrl+K</kbd>
+            </button>
+
+            <button 
+              onClick={() => setVersionModalOpen(true)}
+              className="flex items-center gap-1.5 px-4 py-2 border border-purple-500/50 rounded-lg text-xs font-mono font-semibold bg-purple-950/30 text-purple-300 hover:border-purple-400 transition-all shadow-luxury-sm"
+            >
+              <History className="w-4 h-4 text-purple-400" />
+              <span>VERSIONS</span>
+            </button>
+
+            <button 
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 px-4 py-2 border border-red-500/40 rounded-lg text-xs font-mono font-semibold bg-red-950/20 text-red-400 hover:border-red-500 transition-all"
+            >
+              <LogOut className="w-4 h-4" />
+              EXIT CONTROL
+            </button>
+          </div>
         </div>
 
         {/* Tab Controls Bar */}
@@ -646,6 +707,30 @@ function AdminDashboardContent() {
           </button>
 
           <button
+            onClick={() => handleTabChange("analytics")}
+            className={`flex items-center gap-1.5 px-4 py-2 text-xs font-mono tracking-wider font-semibold rounded-full border transition-all ${
+              activeTab === "analytics"
+                ? "bg-gradient-to-r from-[#0a5c67] to-[#14919b] text-white border-[#14919b]/50 shadow-luxury-md"
+                : "text-slate-400 border-transparent hover:text-white hover:border-[#1e293b]"
+            }`}
+          >
+            <BarChart3 className="w-4 h-4" />
+            ANALYTICS
+          </button>
+
+          <button
+            onClick={() => handleTabChange("audit")}
+            className={`flex items-center gap-1.5 px-4 py-2 text-xs font-mono tracking-wider font-semibold rounded-full border transition-all ${
+              activeTab === "audit"
+                ? "bg-gradient-to-r from-[#0a5c67] to-[#14919b] text-white border-[#14919b]/50 shadow-luxury-md"
+                : "text-slate-400 border-transparent hover:text-white hover:border-[#1e293b]"
+            }`}
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            AUDIT LOGS
+          </button>
+
+          <button
             onClick={() => handleTabChange("settings")}
             className={`flex items-center gap-1.5 px-4 py-2 text-xs font-mono tracking-wider font-semibold rounded-full border transition-all ${
               activeTab === "settings"
@@ -655,6 +740,18 @@ function AdminDashboardContent() {
           >
             <Settings className="w-4 h-4" />
             WEBSITE SETTINGS
+          </button>
+
+          <button
+            onClick={() => handleTabChange("system_health")}
+            className={`flex items-center gap-1.5 px-4 py-2 text-xs font-mono tracking-wider font-semibold rounded-full border transition-all ${
+              activeTab === "system_health" || activeTab === "health"
+                ? "bg-gradient-to-r from-[#0a5c67] to-[#14919b] text-white border-[#14919b]/50 shadow-luxury-md"
+                : "text-slate-400 border-transparent hover:text-white hover:border-[#1e293b]"
+            }`}
+          >
+            <Activity className="w-4 h-4 text-emerald-400" />
+            SYSTEM HEALTH
           </button>
         </div>
 
@@ -673,11 +770,11 @@ function AdminDashboardContent() {
                 {/* Executive Quick Actions Grid */}
                 <div className="border border-zinc-200 dark:border-zinc-900 rounded-2xl p-6 bg-white dark:bg-zinc-950 shadow-luxury-sm flex flex-col gap-4">
                   <h3 className="text-xs font-mono font-bold tracking-widest text-zinc-950 dark:text-white uppercase pb-2 border-b border-zinc-100 dark:border-zinc-900 flex items-center justify-between">
-                    <span>Master Control Shortcuts</span>
-                    <span className="text-[10px] text-zinc-400 font-normal">1-Click Executive Actions</span>
+                    <span>Executive Quick Actions</span>
+                    <span className="text-[10px] text-zinc-400 font-normal">1-Click Control Shortcuts</span>
                   </h3>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 font-mono text-xs">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 font-mono text-xs">
                     <button
                       onClick={() => {
                         setEditingProduct(null);
@@ -694,7 +791,7 @@ function AdminDashboardContent() {
                     >
                       <Plus className="w-5 h-5 text-emerald-500 group-hover:scale-110 transition-transform" />
                       <span className="font-bold text-zinc-900 dark:text-white text-[11px] uppercase">+ ADD PRODUCT</span>
-                      <span className="text-[9px] text-zinc-400 font-sans">Create catalog item</span>
+                      <span className="text-[9px] text-zinc-400 font-sans">Create catalog SKU</span>
                     </button>
 
                     <button
@@ -711,7 +808,7 @@ function AdminDashboardContent() {
                     </button>
 
                     <button
-                      onClick={() => setActiveTab("media")}
+                      onClick={() => handleTabChange("media")}
                       className="p-4 border border-zinc-200 dark:border-zinc-800 rounded-xl bg-zinc-50/50 dark:bg-zinc-900/40 hover:border-black dark:hover:border-white transition-all flex flex-col gap-2 text-left group"
                     >
                       <Upload className="w-5 h-5 text-purple-500 group-hover:scale-110 transition-transform" />
@@ -720,12 +817,49 @@ function AdminDashboardContent() {
                     </button>
 
                     <button
-                      onClick={() => setActiveTab("settings")}
+                      onClick={() => handleTabChange("homepage_builder")}
                       className="p-4 border border-zinc-200 dark:border-zinc-800 rounded-xl bg-zinc-50/50 dark:bg-zinc-900/40 hover:border-black dark:hover:border-white transition-all flex flex-col gap-2 text-left group"
                     >
-                      <Settings className="w-5 h-5 text-amber-500 group-hover:scale-110 transition-transform" />
+                      <Layers className="w-5 h-5 text-amber-500 group-hover:scale-110 transition-transform" />
                       <span className="font-bold text-zinc-900 dark:text-white text-[11px] uppercase">EDIT HOMEPAGE</span>
                       <span className="text-[9px] text-zinc-400 font-sans">Visual Section Builder</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleTabChange("media")}
+                      className="p-4 border border-zinc-200 dark:border-zinc-800 rounded-xl bg-zinc-50/50 dark:bg-zinc-900/40 hover:border-black dark:hover:border-white transition-all flex flex-col gap-2 text-left group"
+                    >
+                      <ImageIcon className="w-5 h-5 text-cyan-500 group-hover:scale-110 transition-transform" />
+                      <span className="font-bold text-zinc-900 dark:text-white text-[11px] uppercase">CREATE ALBUM</span>
+                      <span className="text-[9px] text-zinc-400 font-sans">Organize media folder</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setEditingProduct(null);
+                        setProductForm({
+                          name: "", sku: "", modelNumber: "", description: "",
+                          material: "Surgical-grade AISI 316 Stainless Steel", finish: "Electro-polished Satin Finish",
+                          dimensions: "120 mm", length: "120 mm", width: "10 mm", tipSize: "0.1 mm", jawSize: "N/A", weight: "18g",
+                          featured: false, status: "PUBLISHED", orderIndex: "0", categoryId: categories[0]?.id || "",
+                          imagesJson: '[]', specJson: '{}'
+                        });
+                        setShowProductModal(true);
+                      }}
+                      className="p-4 border border-zinc-200 dark:border-zinc-800 rounded-xl bg-zinc-50/50 dark:bg-zinc-900/40 hover:border-black dark:hover:border-white transition-all flex flex-col gap-2 text-left group"
+                    >
+                      <Video className="w-5 h-5 text-rose-500 group-hover:scale-110 transition-transform" />
+                      <span className="font-bold text-zinc-900 dark:text-white text-[11px] uppercase">ADD VIDEO</span>
+                      <span className="text-[9px] text-zinc-400 font-sans">Embed product video</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleTabChange("inquiries")}
+                      className="p-4 border border-zinc-200 dark:border-zinc-800 rounded-xl bg-zinc-50/50 dark:bg-zinc-900/40 hover:border-black dark:hover:border-white transition-all flex flex-col gap-2 text-left group"
+                    >
+                      <ClipboardList className="w-5 h-5 text-teal-500 group-hover:scale-110 transition-transform" />
+                      <span className="font-bold text-zinc-900 dark:text-white text-[11px] uppercase">VIEW INQUIRIES</span>
+                      <span className="text-[9px] text-zinc-400 font-sans">CRM quotation desk</span>
                     </button>
 
                     <button
@@ -736,34 +870,89 @@ function AdminDashboardContent() {
                       <span className="font-bold text-zinc-900 dark:text-white text-[11px] uppercase">WEBSITE PREVIEW</span>
                       <span className="text-[9px] text-zinc-400 font-sans">Live device viewports</span>
                     </button>
+
+                    <button
+                      onClick={() => handleTabChange("settings")}
+                      className="p-4 border border-zinc-200 dark:border-zinc-800 rounded-xl bg-zinc-50/50 dark:bg-zinc-900/40 hover:border-black dark:hover:border-white transition-all flex flex-col gap-2 text-left group"
+                    >
+                      <Settings className="w-5 h-5 text-zinc-400 group-hover:scale-110 transition-transform" />
+                      <span className="font-bold text-zinc-900 dark:text-white text-[11px] uppercase">SETTINGS</span>
+                      <span className="text-[9px] text-zinc-400 font-sans">Global site options</span>
+                    </button>
                   </div>
                 </div>
 
                 {/* Stats Counters Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="border border-zinc-200 dark:border-zinc-900 rounded-2xl p-6 bg-white dark:bg-zinc-900/50 shadow-luxury-sm flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest block">Calibrated Catalog Products</span>
-                      <span className="text-3xl font-extrabold text-zinc-950 dark:text-white font-mono mt-1 block">{products.length}</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 font-mono">
+                  
+                  <div 
+                    onClick={() => handleTabChange("products")}
+                    className="border border-zinc-200 dark:border-zinc-900 rounded-2xl p-5 bg-white dark:bg-zinc-900/50 shadow-luxury-sm flex flex-col justify-between cursor-pointer hover:border-[#14919b] transition-all"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-zinc-400 uppercase tracking-widest">TOTAL PRODUCTS</span>
+                      <Package className="w-5 h-5 text-[#14919b]" />
                     </div>
-                    <Package className="w-10 h-10 text-zinc-300 dark:text-zinc-700" />
+                    <div className="my-3 flex items-baseline gap-2">
+                      <span className="text-3xl font-extrabold text-zinc-950 dark:text-white">{products.length}</span>
+                      <span className="text-[10px] text-emerald-400 font-bold">({products.filter(p => p.featured).length} Featured)</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-zinc-500 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                      <span>Pub: <strong className="text-emerald-500">{products.filter(p => p.status === "PUBLISHED").length}</strong></span>
+                      <span>Draft: <strong className="text-amber-500">{products.filter(p => p.status === "DRAFT").length}</strong></span>
+                    </div>
                   </div>
 
-                  <div className="border border-zinc-200 dark:border-zinc-900 rounded-2xl p-6 bg-white dark:bg-zinc-900/50 shadow-luxury-sm flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest block">Active Categories</span>
-                      <span className="text-3xl font-extrabold text-zinc-950 dark:text-white font-mono mt-1 block">{categories.length}</span>
+                  <div 
+                    onClick={() => handleTabChange("categories")}
+                    className="border border-zinc-200 dark:border-zinc-900 rounded-2xl p-5 bg-white dark:bg-zinc-900/50 shadow-luxury-sm flex flex-col justify-between cursor-pointer hover:border-[#14919b] transition-all"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-zinc-400 uppercase tracking-widest">CATEGORIES</span>
+                      <Folders className="w-5 h-5 text-[#14919b]" />
                     </div>
-                    <Folders className="w-10 h-10 text-zinc-300 dark:text-zinc-700" />
+                    <div className="my-3">
+                      <span className="text-3xl font-extrabold text-zinc-950 dark:text-white">{categories.length}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-zinc-500 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                      <span>Pub: <strong className="text-emerald-500">{categories.filter(c => c.status === "PUBLISHED").length}</strong></span>
+                      <span>Draft: <strong className="text-amber-500">{categories.filter(c => c.status === "DRAFT").length}</strong></span>
+                    </div>
                   </div>
 
-                  <div className="border border-zinc-200 dark:border-zinc-900 rounded-2xl p-6 bg-white dark:bg-zinc-900/50 shadow-luxury-sm flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest block">Customer Inquiries</span>
-                      <span className="text-3xl font-extrabold text-zinc-950 dark:text-white font-mono mt-1 block">{inquiries.length}</span>
+                  <div 
+                    onClick={() => handleTabChange("inquiries")}
+                    className="border border-zinc-200 dark:border-zinc-900 rounded-2xl p-5 bg-white dark:bg-zinc-900/50 shadow-luxury-sm flex flex-col justify-between cursor-pointer hover:border-[#14919b] transition-all"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-zinc-400 uppercase tracking-widest">RFQs & INQUIRIES</span>
+                      <ClipboardList className="w-5 h-5 text-[#14919b]" />
                     </div>
-                    <ClipboardList className="w-10 h-10 text-zinc-300 dark:text-zinc-700" />
+                    <div className="my-3">
+                      <span className="text-3xl font-extrabold text-zinc-950 dark:text-white">{inquiries.length}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-zinc-500 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                      <span>New/Unread: <strong className="text-blue-500">{inquiries.filter(i => i.status === "NEW" || !i.status).length}</strong></span>
+                      <span>Pending: <strong className="text-amber-500">{inquiries.filter(i => i.status === "IN_PROGRESS" || i.status === "PENDING").length}</strong></span>
+                    </div>
                   </div>
+
+                  <div 
+                    onClick={() => handleTabChange("media")}
+                    className="border border-zinc-200 dark:border-zinc-900 rounded-2xl p-5 bg-white dark:bg-zinc-900/50 shadow-luxury-sm flex flex-col justify-between cursor-pointer hover:border-[#14919b] transition-all"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-zinc-400 uppercase tracking-widest">MEDIA & SECURITY</span>
+                      <Upload className="w-5 h-5 text-[#14919b]" />
+                    </div>
+                    <div className="my-3 flex items-baseline justify-between">
+                      <span className="text-3xl font-extrabold text-zinc-950 dark:text-white">Active</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-zinc-500 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                      <span>Bucket: <strong className="text-emerald-500">orivence-media</strong></span>
+                    </div>
+                  </div>
+
                 </div>
 
                 {/* Recent Inquiries List */}
@@ -1647,9 +1836,24 @@ function AdminDashboardContent() {
         <UsersTab />
       )}
 
+      {/* TAB: ANALYTICS */}
+      {activeTab === "analytics" && (
+        <AnalyticsTab />
+      )}
+
+      {/* TAB: AUDIT LOGS */}
+      {activeTab === "audit" && (
+        <AuditTab />
+      )}
+
       {/* TAB: SYSTEM SETTINGS */}
       {activeTab === "settings" && (
         <SettingsTab initialSettings={settings} onSave={handleSaveSettingsObj} />
+      )}
+
+      {/* TAB: SYSTEM HEALTH */}
+      {(activeTab === "system_health" || activeTab === "health") && (
+        <SystemHealthTab />
       )}
 
       {/* Website Preview Modal */}
@@ -1667,33 +1871,68 @@ function AdminDashboardContent() {
               </div>
 
               {/* Viewport Frame Switcher */}
-              <div className="flex items-center gap-2 bg-zinc-800/80 p-1 rounded-lg font-mono text-xs">
+              <div className="flex flex-wrap items-center gap-1.5 bg-zinc-800/80 p-1 rounded-lg font-mono text-[11px]">
                 <button
                   onClick={() => setPreviewFrame("desktop")}
-                  className={`px-3 py-1.5 rounded flex items-center gap-1.5 font-bold transition-all ${
+                  className={`px-2.5 py-1 rounded flex items-center gap-1 font-bold transition-all ${
                     previewFrame === "desktop" ? "bg-white text-black shadow" : "text-zinc-400 hover:text-white"
                   }`}
                 >
-                  <Monitor className="w-4 h-4" />
-                  Desktop
+                  <Monitor className="w-3.5 h-3.5" /> 1440px
                 </button>
+
+                <button
+                  onClick={() => setPreviewFrame("laptop")}
+                  className={`px-2.5 py-1 rounded flex items-center gap-1 font-bold transition-all ${
+                    previewFrame === "laptop" ? "bg-white text-black shadow" : "text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  <Monitor className="w-3.5 h-3.5 text-blue-400" /> 1024px
+                </button>
+
                 <button
                   onClick={() => setPreviewFrame("tablet")}
-                  className={`px-3 py-1.5 rounded flex items-center gap-1.5 font-bold transition-all ${
+                  className={`px-2.5 py-1 rounded flex items-center gap-1 font-bold transition-all ${
                     previewFrame === "tablet" ? "bg-white text-black shadow" : "text-zinc-400 hover:text-white"
                   }`}
                 >
-                  <Tablet className="w-4 h-4" />
-                  Tablet
+                  <Tablet className="w-3.5 h-3.5 text-indigo-400" /> 768px
                 </button>
+
                 <button
-                  onClick={() => setPreviewFrame("mobile")}
-                  className={`px-3 py-1.5 rounded flex items-center gap-1.5 font-bold transition-all ${
-                    previewFrame === "mobile" ? "bg-white text-black shadow" : "text-zinc-400 hover:text-white"
+                  onClick={() => setPreviewFrame("mobile-414")}
+                  className={`px-2 py-1 rounded flex items-center gap-1 font-bold transition-all ${
+                    previewFrame === "mobile-414" ? "bg-white text-black shadow" : "text-zinc-400 hover:text-white"
                   }`}
                 >
-                  <Smartphone className="w-4 h-4" />
-                  Mobile
+                  <Smartphone className="w-3.5 h-3.5 text-emerald-400" /> 414px
+                </button>
+
+                <button
+                  onClick={() => setPreviewFrame("mobile-390")}
+                  className={`px-2 py-1 rounded flex items-center gap-1 font-bold transition-all ${
+                    previewFrame === "mobile-390" ? "bg-white text-black shadow" : "text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  <Smartphone className="w-3.5 h-3.5 text-teal-400" /> 390px
+                </button>
+
+                <button
+                  onClick={() => setPreviewFrame("mobile-375")}
+                  className={`px-2 py-1 rounded flex items-center gap-1 font-bold transition-all ${
+                    previewFrame === "mobile-375" || previewFrame === ("mobile" as any) ? "bg-white text-black shadow" : "text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  <Smartphone className="w-3.5 h-3.5 text-amber-400" /> 375px
+                </button>
+
+                <button
+                  onClick={() => setPreviewFrame("mobile-320")}
+                  className={`px-2 py-1 rounded flex items-center gap-1 font-bold transition-all ${
+                    previewFrame === "mobile-320" ? "bg-white text-black shadow" : "text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  <Smartphone className="w-3.5 h-3.5 text-rose-400" /> 320px
                 </button>
               </div>
 
@@ -1711,8 +1950,16 @@ function AdminDashboardContent() {
                 className={`transition-all duration-300 h-full border border-zinc-800 rounded-xl overflow-hidden shadow-2xl bg-white ${
                   previewFrame === "desktop"
                     ? "w-full"
+                    : previewFrame === "laptop"
+                    ? "w-[1024px]"
                     : previewFrame === "tablet"
                     ? "w-[768px]"
+                    : previewFrame === "mobile-414"
+                    ? "w-[414px]"
+                    : previewFrame === "mobile-390"
+                    ? "w-[390px]"
+                    : previewFrame === "mobile-320"
+                    ? "w-[320px]"
                     : "w-[375px]"
                 }`}
               >
@@ -1733,6 +1980,20 @@ function AdminDashboardContent() {
         onClose={() => setPickerOpen(false)}
         allowedType="image"
         onSelect={handlePickerSelect}
+      />
+
+      {/* Global Search Command Palette (Ctrl + K) */}
+      <CommandPaletteModal
+        isOpen={commandPaletteOpen}
+        onClose={() => setCommandPaletteOpen(false)}
+        onSelectAction={handleCommandPaletteAction}
+      />
+
+      {/* Persistent Version History & Database Restore Modal */}
+      <VersionHistoryModal
+        isOpen={versionModalOpen}
+        onClose={() => setVersionModalOpen(false)}
+        onVersionRestored={fetchData}
       />
 
     </div>

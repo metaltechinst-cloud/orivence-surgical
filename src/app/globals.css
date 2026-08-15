@@ -1,12 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,300..1000;1,300..1000&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --font-nunito: 'Nunito', sans-serif;
+    --font-sans: var(--font-inter), system-ui, sans-serif;
+    --font-mono: var(--font-mono), monospace;
     
     /* Exact ORIVENCE Palette Tokens */
     --orivence-ice: #E0FBFC;
@@ -35,19 +34,15 @@
     --muted-foreground: #5C6B73;
   }
 
-  * {
-    font-family: 'Nunito', var(--font-nunito), sans-serif !important;
-  }
-
   body {
     background-color: var(--background);
     color: var(--foreground);
-    font-family: 'Nunito', var(--font-nunito), sans-serif;
+    font-family: var(--font-sans);
     overflow-x: hidden;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Nunito', var(--font-nunito), sans-serif;
+    font-family: var(--font-sans);
     color: #253237;
     font-weight: 700;
   }

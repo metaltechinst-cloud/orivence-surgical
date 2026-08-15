@@ -156,7 +156,12 @@ export default function Header({ onOpenCompare, compareCount = 0 }: HeaderProps)
           {headerConfig.showLogo !== false && (
             <Link href="/" className="flex items-center gap-3 group">
               {branding.logoUrl ? (
-                <img src={branding.logoUrl} alt="ORIVENCE logo" className="h-8 max-w-[160px] object-contain" />
+                <img 
+                  src={branding.logoUrl} 
+                  alt="ORIVENCE logo" 
+                  className="h-8 max-w-[160px] object-contain" 
+                  onError={() => setBranding(prev => ({ ...prev, logoUrl: undefined }))}
+                />
               ) : (
                 <>
                   <svg

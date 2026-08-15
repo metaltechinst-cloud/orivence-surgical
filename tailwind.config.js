@@ -30,9 +30,9 @@ module.exports = {
         },
       },
       fontFamily: {
-        sans: ["var(--font-nunito)", "Nunito", "sans-serif"],
-        display: ["var(--font-nunito)", "Nunito", "sans-serif"],
-        mono: ["var(--font-nunito)", "Nunito", "monospace"],
+        sans: ["var(--font-inter)", "Inter", "sans-serif"],
+        display: ["var(--font-inter)", "Inter", "sans-serif"],
+        mono: ["var(--font-mono)", "JetBrains Mono", "monospace"],
       },
       backgroundImage: {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",

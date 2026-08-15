@@ -81,6 +81,7 @@ export default function WelcomeScreen({ onComplete }: WelcomeScreenProps) {
         <div className="w-28 h-28 relative flex items-center justify-center">
           <svg
             viewBox="0 0 100 100"
+            fill="none"
             className="w-full h-full stroke-[#0b192c] fill-none"
             strokeWidth="1.2"
             strokeLinecap="round"
