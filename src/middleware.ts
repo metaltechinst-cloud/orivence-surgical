@@ -2,8 +2,23 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
-const JWT_SECRET = process.env.JWT_SECRET || "orivance-surgical-super-secret-key-1827";
-const REFRESH_SECRET = process.env.REFRESH_SECRET || "orivance-surgical-refresh-key-9982";
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret && process.env.NODE_ENV === "production") {
+    console.error("CRITICAL: JWT_SECRET environment variable is missing in production.");
+    return "";
+  }
+  return secret || "orivance-surgical-super-secret-key-1827";
+}
+
+function getRefreshSecret(): string {
+  const secret = process.env.REFRESH_SECRET;
+  if (!secret && process.env.NODE_ENV === "production") {
+    console.error("CRITICAL: REFRESH_SECRET environment variable is missing in production.");
+    return "";
+  }
+  return secret || "orivance-surgical-refresh-key-9982";
+}
 
 export interface TokenPayload {
   userId: string;
@@ -189,19 +204,19 @@ export async function middleware(req: NextRequest) {
     let userPayload: TokenPayload | null = null;
 
     if (accessToken) {
-      userPayload = await verifyJWT(accessToken, JWT_SECRET);
+      userPayload = await verifyJWT(accessToken, getJwtSecret());
     }
 
     // Try automatic refresh if access token expired but refresh token exists
     if (!userPayload && refreshToken) {
-      const refreshPayload = await verifyJWT(refreshToken, REFRESH_SECRET);
+      const refreshPayload = await verifyJWT(refreshToken, getRefreshSecret());
       if (refreshPayload) {
         // Sign new access token
         const newAccessToken = await signJWT({
           userId: refreshPayload.userId,
           username: refreshPayload.username,
           role: refreshPayload.role,
-        }, JWT_SECRET, 15 * 60);
+        }, getJwtSecret(), 15 * 60);
 
         let res = NextResponse.next();
         res.cookies.set("admin_token", newAccessToken, {
@@ -234,7 +249,7 @@ export async function middleware(req: NextRequest) {
   if (isLoginPage) {
     const accessToken = req.cookies.get("admin_token")?.value;
     if (accessToken) {
-      const payload = await verifyJWT(accessToken, JWT_SECRET);
+      const payload = await verifyJWT(accessToken, getJwtSecret());
       if (payload) {
         return NextResponse.redirect(new URL("/admin/dashboard", req.url));
       }

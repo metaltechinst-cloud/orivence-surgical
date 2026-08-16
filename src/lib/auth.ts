@@ -3,8 +3,27 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { NextRequest, NextResponse } from "next/server";
 
-const JWT_SECRET = process.env.JWT_SECRET || "orivance-surgical-super-secret-key-1827";
-const REFRESH_SECRET = process.env.REFRESH_SECRET || "orivance-surgical-refresh-key-9982";
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("CRITICAL SECURITY ERROR: JWT_SECRET environment variable is missing in production.");
+    }
+    return "orivance-surgical-super-secret-key-1827";
+  }
+  return secret;
+}
+
+function getRefreshSecret(): string {
+  const secret = process.env.REFRESH_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("CRITICAL SECURITY ERROR: REFRESH_SECRET environment variable is missing in production.");
+    }
+    return "orivance-surgical-refresh-key-9982";
+  }
+  return secret;
+}
 
 export interface TokenPayload {
   userId: string;
@@ -14,16 +33,16 @@ export interface TokenPayload {
 }
 
 export function signAccessToken(payload: TokenPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "15m" });
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: "15m" });
 }
 
 export function signRefreshToken(payload: TokenPayload): string {
-  return jwt.sign(payload, REFRESH_SECRET, { expiresIn: "7d" });
+  return jwt.sign(payload, getRefreshSecret(), { expiresIn: "7d" });
 }
 
 export function verifyAccessToken(token: string): TokenPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as TokenPayload;
+    return jwt.verify(token, getJwtSecret()) as TokenPayload;
   } catch (error) {
     return null;
   }
@@ -31,7 +50,7 @@ export function verifyAccessToken(token: string): TokenPayload | null {
 
 export function verifyRefreshToken(token: string): TokenPayload | null {
   try {
-    return jwt.verify(token, REFRESH_SECRET) as TokenPayload;
+    return jwt.verify(token, getRefreshSecret()) as TokenPayload;
   } catch (error) {
     return null;
   }
