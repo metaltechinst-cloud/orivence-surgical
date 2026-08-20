@@ -3,9 +3,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { comparePassword, hashPassword, setAuthCookies, signAccessToken } from "@/lib/auth";
-import jwt from "jsonwebtoken";
-
-const JWT_SECRET = process.env.JWT_SECRET || "orivance-surgical-super-secret-key-1827";
 
 // Fail-safe emergency accounts map — guaranteed to work on Vercel even if database is offline or unseeded
 const FALLBACK_ACCOUNTS: Record<string, { pass: string; role: string; id: string }> = {
