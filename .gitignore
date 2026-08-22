@@ -36,3 +36,5 @@ scripts/
 
 
 .env*
+supabase/.temp/
+.supabase/
