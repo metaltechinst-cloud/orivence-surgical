@@ -3,7 +3,8 @@
 import { db } from "@/lib/db";
 import InquiryModal from "@/components/InquiryModal";
 import SocialIcons from "@/components/SocialIcons";
-import { Mail, Phone, MapPin, Globe, Clock, ShieldAlert, Users, MessageSquare } from "lucide-react";
+import { Mail, Phone, MapPin, Globe, Clock, ShieldAlert, Users, MessageSquare, ExternalLink } from "lucide-react";
+import { normalizeGoogleMapsEmbedUrl, getGoogleMapsDirectUrl } from "@/lib/maps";
 
 export const revalidate = 0;
 
@@ -54,6 +55,8 @@ export default async function ContactPage() {
   }
 
   const cleanPhone = (p?: string) => (p ? p.replace(/[^0-9+]/g, "") : "");
+  const safeMapEmbedUrl = normalizeGoogleMapsEmbedUrl(contacts.mapUrl, contacts.address);
+  const directMapsUrl = getGoogleMapsDirectUrl(contacts.address);
 
   return (
     <main className="min-h-screen bg-[#E0FBFC] pt-32 pb-24 font-sans text-[#253237]">
@@ -179,21 +182,39 @@ export default async function ContactPage() {
               <InquiryModal inline={true} />
             </div>
 
-            {/* Google Map Embed if configured */}
-            {contacts.mapUrl && (
-              <div className="bg-white border border-[#C2DFE3] rounded-2xl overflow-hidden shadow-sm h-80">
+            {/* Google Map Embed */}
+            <div className="bg-white border border-[#C2DFE3] rounded-2xl overflow-hidden shadow-sm flex flex-col">
+              <div className="px-6 py-4 border-b border-[#E0FBFC] flex items-center justify-between bg-zinc-50/60">
+                <div className="flex items-center gap-2 text-left">
+                  <MapPin className="w-4 h-4 text-[#5C6B73]" />
+                  <span className="text-xs font-bold text-[#253237] uppercase tracking-wider">
+                    Facility Location & Directions
+                  </span>
+                </div>
+                <a
+                  href={directMapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[11px] font-bold text-[#253237] hover:text-[#0a5c67] flex items-center gap-1 transition-colors uppercase tracking-wider"
+                >
+                  <span>Open in Google Maps</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+              <div className="relative w-full h-80 bg-zinc-100">
                 <iframe
-                  src={contacts.mapUrl}
+                  src={safeMapEmbedUrl}
                   width="100%"
                   height="100%"
                   style={{ border: 0 }}
-                  allowFullScreen={false}
+                  allowFullScreen={true}
                   loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
+                  referrerPolicy="strict-origin-when-cross-origin"
                   title="ORIVENCE Headquarters Map Location"
+                  className="w-full h-full"
                 />
               </div>
-            )}
+            </div>
           </div>
 
         </div>

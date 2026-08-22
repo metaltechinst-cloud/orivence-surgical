@@ -730,6 +730,23 @@ export default function SettingsTab({ initialSettings, onSave }: SettingsTabProp
                 className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs"
               />
             </div>
+
+            <div className="md:col-span-2 flex flex-col gap-1">
+              <label className="font-bold text-[10px] uppercase text-zinc-500 flex items-center justify-between">
+                <span>Google Maps Embed URL / Location</span>
+                <span className="text-[9px] text-zinc-400 font-normal">Accepts Google Embed URL, iframe src, share link, or address</span>
+              </label>
+              <input
+                type="text"
+                placeholder="https://maps.google.com/maps?q=Tuttlingen,+Germany&output=embed"
+                value={settings.contact_page?.mapUrl || ""}
+                onChange={(e) => updateSettingValue("contact_page.mapUrl", e.target.value)}
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded p-2 text-xs font-mono"
+              />
+              <p className="text-[10px] text-zinc-400">
+                Leave blank or enter an address to automatically generate a standard embed map without requiring Google API keys.
+              </p>
+            </div>
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-zinc-100 dark:border-zinc-900">
